@@ -4,13 +4,14 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node scripts/fix-index.js && vite --host 0.0.0.0",
-    "build": "node scripts/fix-index.js && vite build",
-    "preview": "vite preview --host 0.0.0.0"
+    "dev": "node scripts/build-static.js",
+    "build": "node scripts/build-static.js",
+    "preview": "npx serve dist"
   },
   "dependencies": {
     "vite": "latest",
-    "@supabase/supabase-js": "latest"
+    "@supabase/supabase-js": "latest",
+    "serve": "latest"
   },
   "devDependencies": {}
 }
