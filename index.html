@@ -1957,7 +1957,8 @@ body.login-modal-open{overflow:hidden}
 }
 
 </style>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
 // ============================================================
 // EMPRESAS ONLINE — SUPABASE
 // ============================================================
@@ -5356,8 +5357,11 @@ function imprimirCalendario(){
   const itens = itensCalendario(comp);
   const rows = itens.map(x=>`<tr><td>${formatDate(x.prazo)}</td><td>${escapeHtml(x.emp.nome)}</td><td>${escapeHtml(x.it.nome)}</td><td>${escapeHtml(x.it.status||"pendente")}</td><td>${escapeHtml(x.it.responsavel||responsavelPrincipal(x.emp)||"—")}</td></tr>`).join("");
   const w = window.open("","_blank"); if(!w) return;
-  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Calendário de Obrigações</title><style>@page{size:A4;margin:12mm}body{font-family:'Calibri Light',Calibri,Arial,sans-serif;color:#172033;font-size:11px}h1{font-size:20px;margin:0 0 4px}p{color:#64748b}table{width:100%;border-collapse:collapse;margin-top:10px}th,td{border:1px solid #e5e7eb;padding:6px;text-align:left}th{background:#f8fafc}</style></head><body><h1>Calendário de Obrigações</h1><p>Competência ${escapeHtml(comp)} • gerado em ${new Date().toLocaleString("pt-BR")}</p><table><thead><tr><th>Prazo</th><th>Empresa</th><th>Obrigação</th><th>Status</th><th>Responsável</th></tr></thead><tbody>${rows || '<tr><td colspan="5">Nenhuma obrigação com prazo.</td></tr>'}</tbody></table><script>window.onload=()=>setTimeout(()=>window.print(),200)<\/script>
-<script>
+  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Calendário de Obrigações</title><style>@page{size:A4;margin:12mm}body{font-family:'Calibri Light',Calibri,Arial,sans-serif;color:#172033;font-size:11px}h1{font-size:20px;margin:0 0 4px}p{color:#64748b}table{width:100%;border-collapse:collapse;margin-top:10px}th,td{border:1px solid #e5e7eb;padding:6px;text-align:left}th{background:#f8fafc}</style></head><body><h1>Calendário de Obrigações</h1><p>Competência ${escapeHtml(comp)} • gerado em ${new Date().toLocaleString("pt-BR")}</p><table><thead><tr><th>Prazo</th><th>Empresa</th><th>Obrigação</th><th>Status</th><th>Responsável</th></tr></thead><tbody>${rows || '<tr><td colspan="5">Nenhuma obrigação com prazo.</td></tr>'}</tbody></table><script>window.onload=()=>setTimeout(()=>window.print(),200)<\/script></body></html>`);
+  w.document.close();
+}
+
+
 /* ============================================================
    PATCH ONLINE V8 — EMPRESAS SUPABASE GLOBAL
    ============================================================ */
@@ -5618,11 +5622,7 @@ function imprimirCalendario(){
     }, 1200);
   });
 })();
-</script>
 
-</body></html>`);
-  w.document.close();
-}
 function renderKpi(k){
   const f = k.filter || null;
   const filterAttrs = f ? ` data-kpi-view="${escapeHtml(f.view||"")}" data-kpi-filter="${escapeHtml(f.type||"")}" data-kpi-value="${escapeHtml(f.value||"")}"` : "";
