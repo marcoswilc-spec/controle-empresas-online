@@ -2,7 +2,6 @@ services:
   - type: web
     name: controle-empresas-web
     runtime: static
-    repo: https://github.com/marcoswilc-spec/controle-empresas-online
     branch: main
     buildCommand: npm install && npm run build
     staticPublishPath: dist

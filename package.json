@@ -1,6 +1,6 @@
 {
-  "name": "controle-empresas-online",
-  "version": "0.1.0",
+  "name": "controle-empresas-online-html-v8",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -9,12 +9,8 @@
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {
-    "@vitejs/plugin-react": "latest",
-    "@supabase/supabase-js": "latest",
     "vite": "latest",
-    "react": "latest",
-    "react-dom": "latest",
-    "lucide-react": "latest"
+    "@supabase/supabase-js": "latest"
   },
   "devDependencies": {}
 }

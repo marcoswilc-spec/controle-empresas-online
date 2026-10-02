@@ -1,29 +1,8 @@
-# Controle Empresas Online
+# Controle de Empresa Online — HTML v8 completo
 
-Sistema online para controle de empresas, obrigações, documentos, clientes, equipe e assinaturas.
+Esta pasta usa o HTML v8 completo como `index.html`, para manter o visual e as telas do sistema anterior.
 
-## Arquitetura definida
-
-- **Render**: hospedagem principal
-- **GitHub**: fonte do código
-- **Supabase**: autenticação, banco e storage
-
-## Rodar localmente
-
-```bash
-npm install
-npm run dev
-```
-
-## Build
-
-```bash
-npm run build
-```
-
-## Deploy no Render
-
-Tipo: Static Site
+## Render
 
 Build Command:
 
@@ -37,21 +16,7 @@ Publish Directory:
 dist
 ```
 
-## Variáveis de ambiente
+## Observação
 
-```env
-VITE_SUPABASE_URL=https://qnqmmrvhqxpenhqyesbc.supabase.co
-VITE_SUPABASE_ANON_KEY=<anon public key>
-```
-
-## Status atual
-
-Primeira remontagem limpa em React/Vite, com:
-
-- login Supabase;
-- identificação de organização;
-- leitura de assinatura;
-- dashboard;
-- cadastro/listagem de empresas no Supabase.
-
-Próxima etapa: documentos no Supabase Storage e gestão de usuários/time.
+Esta é a Opção 1: manter o HTML completo como base visual no Render.
+Depois os módulos podem ser migrados com calma para React/Supabase.
