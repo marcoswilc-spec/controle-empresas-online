@@ -6,38 +6,60 @@ import {
   FileText,
   FolderOpen,
   LayoutDashboard,
+  Link as LinkIcon,
   LogOut,
+  Mail,
   Menu,
   Plus,
   RefreshCw,
+  Search,
   ShieldCheck,
+  Sparkles,
+  UserRound,
   Users,
-  ArrowUpRight,
-  Bell,
-  LockKeyhole,
-  Percent,
+  X,
 } from 'lucide-react';
 import { supabase } from './lib/supabase';
 
-const menuItems = [
-  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { id: 'empresas', label: 'Empresas', icon: Building2 },
-  { id: 'usuarios', label: 'Usuários / Time', icon: Users },
-  { id: 'cliente', label: 'Área do Cliente', icon: ShieldCheck },
-  { id: 'documentos', label: 'Documentos', icon: FolderOpen },
-  { id: 'obrigacoes', label: 'Obrigações', icon: CheckCircle2 },
-  { id: 'relatorios', label: 'Relatórios', icon: FileText },
-  { id: 'calendario', label: 'Calendário', icon: CalendarDays },
+const FALLBACK_ORG_ID = '0f0f736a-1af7-4049-b5e6-ef3313cd2b8f';
+
+const menuGroups = [
+  {
+    title: 'Geral',
+    items: [{ id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard }],
+  },
+  {
+    title: 'Cadastro',
+    items: [
+      { id: 'empresas', label: 'Empresas', icon: Building2 },
+      { id: 'usuarios', label: 'Usuários', icon: Users },
+      { id: 'contatos', label: 'Agenda/Contatos', icon: Mail },
+      { id: 'cliente', label: 'Área do Cliente', icon: ShieldCheck },
+    ],
+  },
+  {
+    title: 'Operacional',
+    items: [
+      { id: 'fiscal', label: 'Conferência Fiscal', icon: Sparkles },
+      { id: 'pendencias', label: 'Pendências', icon: FileText },
+      { id: 'fechamento', label: 'Fechamento Mensal', icon: CheckCircle2 },
+      { id: 'relatorios', label: 'Relatórios', icon: FileText },
+      { id: 'calendario', label: 'Calendário', icon: CalendarDays },
+    ],
+  },
+  {
+    title: 'Módulos Inteligentes',
+    items: [
+      { id: 'links', label: 'Links Rápidos', icon: LinkIcon },
+      { id: 'fatorr', label: 'Fator R', icon: Sparkles },
+      { id: 'documentos', label: 'Documentos', icon: FolderOpen },
+      { id: 'chamados', label: 'Chamado Interno', icon: RefreshCw },
+      { id: 'base', label: 'Base Analista', icon: Sparkles },
+    ],
+  },
 ];
 
-const featureCards = [
-  { title: 'Controle de empresas', text: 'Cadastro, regime, responsáveis, contatos, status e bloqueio por pagamento.', icon: Building2 },
-  { title: 'Fechamento mensal', text: 'Checklist por competência, tarefas por responsável e visão do que falta fazer.', icon: CheckCircle2 },
-  { title: 'Calendário e alertas', text: 'Avisos de obrigações próximas, vencidas e pendentes por empresa.', icon: Bell },
-  { title: 'Documentos', text: 'Central para guias, comprovantes, solicitações e arquivos por cliente.', icon: FolderOpen },
-  { title: 'Área do cliente', text: 'Portal simples para o cliente visualizar documentos e pendências.', icon: ShieldCheck },
-  { title: 'Fator R e base técnica', text: 'Módulos de apoio tributário para estudos e decisões internas.', icon: Percent },
-];
+const flatMenu = menuGroups.flatMap((g) => g.items);
 
 function emptyCompany() {
   return {
@@ -51,6 +73,12 @@ function emptyCompany() {
   };
 }
 
+function normalizarCnpj(cnpj) {
+  const v = String(cnpj || '').replace(/\D/g, '');
+  if (v.length !== 14) return cnpj || '';
+  return v.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
+}
+
 export default function App() {
   const [session, setSession] = useState(null);
   const [profile, setProfile] = useState(null);
@@ -58,24 +86,23 @@ export default function App() {
   const [assinatura, setAssinatura] = useState(null);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState('dashboard');
+  const [loginOpen, setLoginOpen] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const [loginOpen, setLoginOpen] = useState(false);
   const [empresas, setEmpresas] = useState([]);
   const [empresaForm, setEmpresaForm] = useState(emptyCompany());
   const [savingEmpresa, setSavingEmpresa] = useState(false);
+  const [buscaEmpresa, setBuscaEmpresa] = useState('');
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session || null);
       setLoading(false);
     });
-
     const { data: listener } = supabase.auth.onAuthStateChange((_event, newSession) => {
       setSession(newSession || null);
     });
-
     return () => listener?.subscription?.unsubscribe();
   }, []);
 
@@ -104,7 +131,7 @@ export default function App() {
         .eq('id', user.id)
         .maybeSingle();
       if (profError) throw profError;
-      setProfile(prof);
+      setProfile(prof || { email: user.email, nome: user.email, papel: 'usuário' });
 
       let orgId = null;
       let membroPapel = null;
@@ -116,7 +143,6 @@ export default function App() {
         .eq('ativo', true)
         .limit(1)
         .maybeSingle();
-
       if (membro?.organizacao_id) {
         orgId = membro.organizacao_id;
         membroPapel = membro.papel;
@@ -136,10 +162,15 @@ export default function App() {
         const { data: emailOrg } = await supabase
           .from('organizacoes')
           .select('id,nome,email_cobranca,status,owner_id')
-          .eq('email_cobranca', user.email)
+          .ilike('email_cobranca', user.email || '')
           .limit(1)
           .maybeSingle();
         if (emailOrg?.id) orgId = emailOrg.id;
+      }
+
+      if (!orgId && String(user.email || '').toLowerCase() === 'marcoswilc@gmail.com') {
+        orgId = FALLBACK_ORG_ID;
+        membroPapel = 'owner';
       }
 
       if (!orgId) throw new Error('Usuário sem organização vinculada.');
@@ -148,16 +179,16 @@ export default function App() {
         .from('organizacoes')
         .select('id,nome,email_cobranca,status,owner_id')
         .eq('id', orgId)
-        .single();
+        .maybeSingle();
       if (orgError) throw orgError;
-      setOrg({ ...orgData, membroPapel });
+      setOrg({ ...(orgData || { id: orgId, nome: 'Controle Empresas - Ambiente Teste' }), membroPapel });
 
       const { data: assinaturaData } = await supabase
         .from('assinaturas')
         .select('status,plano,valor_base,limite_usuarios,valor_usuario_extra,vencimento,motivo_bloqueio')
         .eq('organizacao_id', orgId)
         .maybeSingle();
-      setAssinatura(assinaturaData);
+      setAssinatura(assinaturaData || { status: 'ativa', plano: 'manual', limite_usuarios: 1 });
     } catch (err) {
       setError(err.message || 'Falha ao carregar usuário.');
     } finally {
@@ -171,7 +202,6 @@ export default function App() {
       .select('*')
       .eq('organizacao_id', orgId)
       .order('razao_social', { ascending: true });
-
     if (empError) {
       setError(empError.message);
       return;
@@ -183,7 +213,7 @@ export default function App() {
     event.preventDefault();
     setError('');
     setLoading(true);
-    const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
+    const { error: authError } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
     if (authError) setError(authError.message);
     setLoading(false);
   }
@@ -216,147 +246,28 @@ export default function App() {
   }
 
   const assinaturaAtiva = useMemo(() => {
-    if (!assinatura) return false;
-    return ['ativa', 'teste'].includes(String(assinatura.status || '').toLowerCase());
+    if (!assinatura) return true;
+    return ['ativa', 'teste', 'manual'].includes(String(assinatura.status || '').toLowerCase());
   }, [assinatura]);
+
+  const empresasFiltradas = useMemo(() => {
+    const q = buscaEmpresa.trim().toLowerCase();
+    if (!q) return empresas;
+    return empresas.filter((e) => [e.razao_social, e.nome_fantasia, e.cnpj, e.codigo_interno].join(' ').toLowerCase().includes(q));
+  }, [empresas, buscaEmpresa]);
 
   const stats = useMemo(() => ({
     total: empresas.length,
     ativas: empresas.filter((e) => e.status === 'ativa').length,
     implantacao: empresas.filter((e) => e.status === 'implantacao').length,
     suspensas: empresas.filter((e) => e.status === 'suspensa').length,
+    baixadas: empresas.filter((e) => e.status === 'baixada').length,
   }), [empresas]);
 
   if (loading && !session) return <div className="splash">Carregando Controle de Empresa...</div>;
 
   if (!session) {
-    return (
-      <main className="landing-page">
-        <header className="landing-topbar">
-          <div className="landing-brand">
-            <div className="landing-logo">CE</div>
-            <div><strong>Cont.AI</strong><span>Controle de empresas para escritórios contábeis</span></div>
-          </div>
-          <nav className="landing-nav">
-            <a href="#funcionalidades">Funcionalidades</a>
-            <a href="#cliente">Área do cliente</a>
-            <a href="#planos">Planos</a>
-            <button className="login-bubble" type="button" onClick={() => setLoginOpen(true)}><span><ArrowUpRight size={15} /></span> Faça seu login aqui</button>
-          </nav>
-        </header>
-
-        <section className="landing-hero">
-          <div>
-            <span className="kicker">Sistema de gestão contábil</span>
-            <h1>Organize empresas, obrigações, documentos e prazos em um único painel.</h1>
-            <p>O Cont.AI foi pensado para a rotina de escritórios contábeis: competências, alertas de vencimento, tarefas por responsável, documentos dos clientes e relatórios de acompanhamento.</p>
-            <div className="landing-actions">
-              <button className="primary-cta" type="button" onClick={() => setLoginOpen(true)}>Faça seu login aqui</button>
-              <a className="ghost-cta" href="#cliente">Ver área do cliente</a>
-            </div>
-            <div className="landing-metrics">
-              <MetricMini value="01" label="painel central" />
-              <MetricMini value="05" label="áreas integradas" />
-              <MetricMini value="100%" label="foco contábil" />
-            </div>
-          </div>
-
-          <div className="landing-preview-rich">
-            <div className="preview-window">
-              <div className="window-dots"><i></i><i></i><i></i><strong>Painel contábil inteligente</strong></div>
-              <div className="fake-dashboard">
-                <div className="overlay-card top"><small>Produtividade</small><strong>74%</strong><span>competência em andamento</span></div>
-                <div className="overlay-card bottom"><small>Clientes ativos</small><strong>128</strong><span>acessos organizados</span></div>
-              </div>
-            </div>
-            <div className="preview-grid rich">
-              <div><small>Pendências</small><strong>27</strong><span>exigem acompanhamento</span></div>
-              <div><small>Empresas</small><strong>128</strong><span>em carteira</span></div>
-              <div><small>Vencendo</small><strong>12</strong><span>próximos 5 dias</span></div>
-              <div><small>Concluídas</small><strong>74%</strong><span>competência atual</span></div>
-            </div>
-          </div>
-        </section>
-
-        <section className="visual-strip">
-          <SectionTitle tag="Visão do sistema" title="Mais visual, mais claro e ainda objetivo" text="Uma apresentação com mais vida para o cliente entender rapidamente como o Cont.AI funciona, sem poluição visual." />
-          <div className="visual-grid">
-            <VisualCard title="Painel com visão geral" tag="Dashboard" text="Cards de acompanhamento, semáforo de pendências e foco no que precisa ser feito primeiro." large />
-            <VisualCard title="Portal enxuto" tag="Cliente" text="O cliente visualiza apenas documentos, solicitações, guias e avisos." />
-            <VisualCard title="Documentos e tarefas" tag="Operação" text="Fluxo para anexos, tarefas internas e módulos de apoio do escritório." />
-          </div>
-        </section>
-
-        <section className="landing-section" id="funcionalidades">
-          <SectionTitle tag="Funcionalidades" title="O que o sistema faz" text="Uma visão prática para testar antes de transformar o projeto em ambiente online completo." />
-          <div className="feature-grid">
-            {featureCards.map((card) => <FeatureCard key={card.title} {...card} />)}
-          </div>
-        </section>
-
-        <section className="client-section" id="cliente">
-          <div>
-            <span className="kicker">Área do cliente</span>
-            <h2>Um portal mais simples para o cliente acompanhar o que precisa enviar.</h2>
-            <p>A ideia é separar o que é interno do escritório daquilo que o cliente deve enxergar: pendências, documentos solicitados, guias, avisos e status de acesso.</p>
-            <div className="client-bullets">
-              <div><strong>01</strong><span>Cliente acessa somente a própria empresa.</span></div>
-              <div><strong>02</strong><span>Visualiza documentos e obrigações solicitadas.</span></div>
-              <div><strong>03</strong><span>Acesso pode ser bloqueado em caso de falta de pagamento.</span></div>
-            </div>
-          </div>
-          <div className="client-preview">
-            <div className="client-preview-head"><strong>Portal do Cliente</strong><span>Acesso ativo</span></div>
-            <div><small>Documentos pendentes</small><strong>4 solicitações</strong><p>Notas de serviço, extratos bancários, folha e comprovantes.</p></div>
-            <div><small>Guias disponíveis</small><strong>2 arquivos</strong><p>DAS e DCTFWeb liberadas para conferência.</p></div>
-            <div className="muted"><small>Contato do escritório</small><strong>Fiscal responsável</strong><p>Canal rápido para tratar pendências da competência.</p></div>
-          </div>
-        </section>
-
-        <section className="process-section">
-          <SectionTitle tag="Como funciona" title="Uma jornada clara para o escritório e para o cliente" text="Organização interna, portal do cliente e acompanhamento das competências em uma mesma plataforma." />
-          <div className="process-grid">
-            <ProcessStep n="01" title="Organize a carteira" text="Cadastre empresas, grupos de obrigações, responsáveis, regime por vigência e contatos." />
-            <ProcessStep n="02" title="Acompanhe o fechamento" text="Use checklist, calendário, alertas e documentos para centralizar o que foi feito e o que falta fazer." />
-            <ProcessStep n="03" title="Entregue ao cliente" text="Libere portal, comunicações, guias e solicitações com acesso controlado." />
-          </div>
-        </section>
-
-        <section className="pricing-section" id="planos">
-          <SectionTitle tag="Planos" title="Preparado para assinatura mensal" text="Estrutura pensada para liberar acesso por cliente após pagamento quando o sistema estiver completo." />
-          <div className="pricing-card"><div><h3>Plano mensal</h3><p>Cadastro de empresas ilimitado, 1 usuário incluso e cobrança adicional por usuário extra.</p></div><div className="price-box"><small>a partir de</small><strong>R$ 89,90</strong><span>+ R$ 39,90 por usuário adicional</span></div></div>
-        </section>
-
-        <section className="access-cta">
-          <div><span>Acesso ao sistema</span><h2>Pronto para entrar no Cont.AI?</h2><p>O acesso fica no topo da página para manter a apresentação limpa.</p></div>
-          <button className="primary-cta" onClick={() => setLoginOpen(true)}>Abrir login</button>
-        </section>
-
-        {loginOpen && (
-          <div className="login-modal" onMouseDown={(e) => { if (e.target.className === 'login-modal') setLoginOpen(false); }}>
-            <div className="login-popup-card">
-              <button className="login-close" onClick={() => setLoginOpen(false)}>×</button>
-              <section className="login-side">
-                <span>Acesso seguro</span>
-                <h2>Entre no sistema</h2>
-                <p>Use o e-mail cadastrado no Supabase para acessar o ambiente online.</p>
-                <div className="login-points"><div><b></b>Controle de empresas, obrigações e documentos</div><div><b></b>Área do cliente com permissões separadas</div><div><b></b>Fluxo preparado para Render + Supabase</div></div>
-              </section>
-              <form onSubmit={signIn} className="login-form-card">
-                <div className="form-brand"><div className="landing-logo">CE</div><div><strong>Faça seu login aqui</strong><span>Informe seu e-mail e senha</span></div></div>
-                <label>E-mail</label>
-                <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="seu@email.com.br" />
-                <label>Senha</label>
-                <div className="password-shell"><LockKeyhole size={16} /><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Digite sua senha" /></div>
-                {error && <div className="error-box">{error}</div>}
-                <button disabled={loading}>{loading ? 'Entrando...' : 'Entrar no controle'}</button>
-                <small>Acesso restrito aos usuários cadastrados na plataforma.</small>
-              </form>
-            </div>
-          </div>
-        )}
-      </main>
-    );
+    return <Landing loginOpen={loginOpen} setLoginOpen={setLoginOpen} email={email} setEmail={setEmail} password={password} setPassword={setPassword} error={error} signIn={signIn} loading={loading} />;
   }
 
   if (assinatura && !assinaturaAtiva) {
@@ -374,32 +285,77 @@ export default function App() {
   }
 
   return (
-    <div className="app-shell">
-      <aside className="sidebar">
-        <div className="app-brand"><div className="logo-box">CE</div><div><strong>Controle de Empresa</strong><span>{org?.nome || 'Organização'}</span></div></div>
-        <nav>{menuItems.map((item) => { const Icon = item.icon; return <button key={item.id} className={view === item.id ? 'active' : ''} onClick={() => setView(item.id)}><Icon size={18} />{item.label}</button>; })}</nav>
+    <div className="legacy-shell">
+      <aside className="legacy-sidebar">
+        <div className="legacy-brand"><div className="legacy-logo">CE</div><div><strong>Controle de Empresa</strong><span>Módulo integrado</span></div></div>
+        <nav>
+          {menuGroups.map((group) => (
+            <div className="menu-group" key={group.title}>
+              <p>{group.title}</p>
+              {group.items.map((item) => {
+                const Icon = item.icon;
+                return <button key={item.id} className={view === item.id ? 'active' : ''} onClick={() => setView(item.id)}><Icon size={17} />{item.label}</button>;
+              })}
+            </div>
+          ))}
+        </nav>
       </aside>
-      <section className="content">
-        <header className="topbar">
-          <button className="menu-button"><Menu size={20} /></button>
-          <div><strong>{profile?.nome || profile?.email || session.user.email}</strong><span>{profile?.papel || org?.membroPapel || 'usuário'} · {assinatura?.status || 'sem assinatura'}</span></div>
-          <button className="ghost" onClick={signOut}><LogOut size={16} /> Sair</button>
+
+      <main className="legacy-main">
+        <header className="legacy-topbar">
+          <button className="icon-btn"><Menu size={22} /></button>
+          <div className="filters-grid">
+            <label>Competência<select><option>10/2026</option><option>09/2026</option></select></label>
+            <label>Empresa<select><option>Todas empresas</option>{empresas.map((e) => <option key={e.id}>{e.nome_fantasia || e.razao_social}</option>)}</select></label>
+            <label>Nome/Cód.<input placeholder="nome ou código" /></label>
+            <label>Regime<select><option>Todos</option><option>Simples Nacional</option><option>Lucro Presumido</option><option>Lucro Real</option></select></label>
+            <label>Responsável<select><option>Todos</option></select></label>
+          </div>
+          <div className="quick-actions">
+            <button>Limpar</button><button>Próximo mês</button><button>Grupos/Obrigações</button><button>Usuários</button><button>Relatório</button><button>Contatos</button><button>Área do cliente</button><button>Calendário</button><button>Links</button><button>Backup</button><button>CSV</button><button>Imprimir</button><button className="primary">+ Verificar</button><button>Alertas</button><button onClick={signOut}>Sair</button>
+          </div>
         </header>
+
+        <section className="identity-row">
+          <div><strong>{profile?.nome || profile?.email || session.user.email}</strong><span>{profile?.papel || org?.membroPapel || 'usuário'} · {assinatura?.status || 'sem assinatura'} · {org?.nome || 'Organização'}</span></div>
+        </section>
+
         {error && <div className="error-box">{error}</div>}
+
         {view === 'dashboard' && <Dashboard stats={stats} org={org} assinatura={assinatura} />}
-        {view === 'empresas' && <Empresas empresas={empresas} reload={() => loadEmpresas(org.id)} form={empresaForm} setForm={setEmpresaForm} save={saveEmpresa} saving={savingEmpresa} />}
-        {view !== 'dashboard' && view !== 'empresas' && <Placeholder title={menuItems.find((m) => m.id === view)?.label} />}
-      </section>
+        {view === 'empresas' && <Empresas empresas={empresasFiltradas} busca={buscaEmpresa} setBusca={setBuscaEmpresa} reload={() => loadEmpresas(org.id)} form={empresaForm} setForm={setEmpresaForm} save={saveEmpresa} saving={savingEmpresa} />}
+        {view !== 'dashboard' && view !== 'empresas' && <Placeholder title={flatMenu.find((m) => m.id === view)?.label} />}
+      </main>
     </div>
   );
 }
 
-function MetricMini({ value, label }) { return <div><strong>{value}</strong><span>{label}</span></div>; }
-function SectionTitle({ tag, title, text }) { return <div className="section-title"><span>{tag}</span><h2>{title}</h2><p>{text}</p></div>; }
-function FeatureCard({ title, text, icon: Icon }) { return <article className="feature-card"><div className="feature-thumb"><Icon size={24} /></div><h3>{title}</h3><p>{text}</p></article>; }
-function VisualCard({ title, tag, text, large }) { return <article className={large ? 'visual-card large' : 'visual-card'}><span>{tag}</span><h3>{title}</h3><div className="visual-screen"><i></i><i></i><i></i></div><p>{text}</p></article>; }
-function ProcessStep({ n, title, text }) { return <article className="process-step"><span>{n}</span><div></div><h3>{title}</h3><p>{text}</p></article>; }
-function Dashboard({ stats, org, assinatura }) { return <div className="page"><h1>Dashboard</h1><p>Ambiente online conectado ao Supabase.</p><div className="cards"><Metric label="Total de empresas" value={stats.total} /><Metric label="Ativas" value={stats.ativas} /><Metric label="Em implantação" value={stats.implantacao} /><Metric label="Suspensas" value={stats.suspensas} /></div><section className="panel"><h2>Assinatura</h2><p><strong>Organização:</strong> {org?.nome}</p><p><strong>Status:</strong> {assinatura?.status || 'não localizada'}</p><p><strong>Limite usuários:</strong> {assinatura?.limite_usuarios || '-'}</p></section></div>; }
-function Metric({ label, value }) { return <div className="metric"><span>{label}</span><strong>{value}</strong></div>; }
-function Empresas({ empresas, reload, form, setForm, save, saving }) { return <div className="page"><div className="page-header"><div><h1>Empresas</h1><p>Cadastro gravado no Supabase.</p></div><button className="ghost" onClick={reload}><RefreshCw size={16} /> Recarregar</button></div><form className="company-form" onSubmit={save}><input placeholder="Razão social" value={form.razao_social} onChange={(e) => setForm({ ...form, razao_social: e.target.value })} /><input placeholder="Nome fantasia" value={form.nome_fantasia} onChange={(e) => setForm({ ...form, nome_fantasia: e.target.value })} /><input placeholder="CNPJ" value={form.cnpj} onChange={(e) => setForm({ ...form, cnpj: e.target.value })} /><input placeholder="Código interno" value={form.codigo_interno} onChange={(e) => setForm({ ...form, codigo_interno: e.target.value })} /><select value={form.regime_atual} onChange={(e) => setForm({ ...form, regime_atual: e.target.value })}><option>MEI</option><option>Simples Nacional</option><option>Lucro Presumido</option><option>Lucro Real</option><option>Imune/Isenta</option></select><select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}><option value="ativa">Ativa</option><option value="implantacao">Implantação</option><option value="suspensa">Suspensa</option><option value="baixada">Baixada</option></select><textarea placeholder="Atividade" value={form.atividade} onChange={(e) => setForm({ ...form, atividade: e.target.value })} /><button disabled={saving}><Plus size={16} /> {saving ? 'Salvando...' : 'Cadastrar empresa'}</button></form><div className="table-card"><table><thead><tr><th>Razão social</th><th>Fantasia</th><th>CNPJ</th><th>Regime</th><th>Status</th></tr></thead><tbody>{empresas.map((empresa) => <tr key={empresa.id}><td>{empresa.razao_social}</td><td>{empresa.nome_fantasia}</td><td>{empresa.cnpj}</td><td>{empresa.regime_atual}</td><td>{empresa.status}</td></tr>)}{!empresas.length && <tr><td colSpan="5">Nenhuma empresa encontrada.</td></tr>}</tbody></table></div></div>; }
-function Placeholder({ title }) { return <div className="page"><h1>{title}</h1><p>Módulo reservado para a próxima etapa da migração.</p></div>; }
+function Landing({ loginOpen, setLoginOpen, email, setEmail, password, setPassword, error, signIn, loading }) {
+  return (
+    <main className="site-home">
+      <header className="site-nav"><div className="site-brand"><div className="legacy-logo">CE</div><strong>Cont.AI</strong></div><button onClick={() => setLoginOpen(true)}>Faça seu login aqui</button></header>
+      <section className="site-hero">
+        <div className="hero-copy"><span>Controle empresarial online</span><h1>Gestão contábil, documentos e obrigações em um só lugar.</h1><p>Organize empresas, equipe, pendências, área do cliente e alertas em uma plataforma visual preparada para Render + Supabase.</p><div className="hero-buttons"><button onClick={() => setLoginOpen(true)}>Entrar no sistema</button><button>Ver funcionalidades</button></div></div>
+        <div className="hero-board"><div className="fake-window"><b>Dashboard inteligente</b><div></div><div></div><div></div></div><div className="floating-card">Área do cliente</div><div className="floating-card second">Documentos e guias</div></div>
+      </section>
+      <section className="features"><article><Building2 />Empresas e regimes</article><article><FolderOpen />Documentos com controle</article><article><Users />Equipe e usuários</article><article><CalendarDays />Calendário de vencimentos</article></section>
+      {loginOpen && <div className="login-overlay"><div className="login-panel"><div className="login-info"><span>Acesso seguro</span><h2>Entre no sistema</h2><p>Use o e-mail cadastrado no Supabase para acessar o ambiente online.</p><ul><li>Controle de empresas, obrigações e documentos</li><li>Área do cliente com permissões separadas</li><li>Fluxo preparado para Render + Supabase</li></ul></div><form onSubmit={signIn} className="login-box"><button type="button" className="close" onClick={() => setLoginOpen(false)}><X size={18} /></button><div className="brand-line"><div className="legacy-logo">CE</div><div><h3>Faça seu login aqui</h3><p>Informe seu e-mail e senha</p></div></div><label>E-mail</label><input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="marcoswilc@gmail.com" autoFocus /><label>Senha</label><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Digite sua senha" />{error && <div className="error-box">{error}</div>}<button disabled={loading}>{loading ? 'Entrando...' : 'Entrar no controle'}</button><small>Acesso restrito aos usuários cadastrados na plataforma.</small></form></div></div>}
+    </main>
+  );
+}
+
+function Dashboard({ stats, org, assinatura }) {
+  return (
+    <div className="legacy-page"><h1>Dashboard</h1><p>Ambiente online conectado ao Supabase.</p><div className="kpi-grid"><Metric label="Total de empresas" value={stats.total} /><Metric label="Ativas" value={stats.ativas} /><Metric label="Em implantação" value={stats.implantacao} /><Metric label="Suspensas" value={stats.suspensas} /><Metric label="Baixadas" value={stats.baixadas} /></div><section className="panel"><h2>Assinatura</h2><p><strong>Organização:</strong> {org?.nome}</p><p><strong>Status:</strong> {assinatura?.status || 'não localizada'}</p><p><strong>Limite usuários:</strong> {assinatura?.limite_usuarios || '-'}</p></section></div>
+  );
+}
+
+function Metric({ label, value }) { return <div className="metric"><span>{label}</span><strong>{value}</strong><small>no cadastro</small></div>; }
+
+function Empresas({ empresas, busca, setBusca, reload, form, setForm, save, saving }) {
+  return (
+    <div className="legacy-page"><div className="page-head"><div><h1>Cadastro de Empresas</h1><p>Gestão cadastral das empresas do escritório</p></div><div className="empresa-tools"><div className="searchbox"><Search size={16} /><input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar por nome, CNPJ, responsável..." /></div><button onClick={reload}><RefreshCw size={16} /> Recarregar online</button></div></div><form className="company-form legacy-form" onSubmit={save}><input placeholder="Razão social" value={form.razao_social} onChange={(e) => setForm({ ...form, razao_social: e.target.value })} /><input placeholder="Nome fantasia" value={form.nome_fantasia} onChange={(e) => setForm({ ...form, nome_fantasia: e.target.value })} /><input placeholder="CNPJ" value={form.cnpj} onChange={(e) => setForm({ ...form, cnpj: e.target.value })} /><input placeholder="Código interno" value={form.codigo_interno} onChange={(e) => setForm({ ...form, codigo_interno: e.target.value })} /><select value={form.regime_atual} onChange={(e) => setForm({ ...form, regime_atual: e.target.value })}><option>MEI</option><option>Simples Nacional</option><option>Lucro Presumido</option><option>Lucro Real</option><option>Imune/Isenta</option></select><select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}><option value="ativa">Ativa</option><option value="implantacao">Implantação</option><option value="suspensa">Suspensa</option><option value="baixada">Baixada</option></select><textarea placeholder="Atividade" value={form.atividade} onChange={(e) => setForm({ ...form, atividade: e.target.value })} /><button disabled={saving}><Plus size={16} /> {saving ? 'Salvando...' : '+ Nova empresa online'}</button></form><div className="table-card"><table><thead><tr><th>Razão social</th><th>Fantasia</th><th>CNPJ</th><th>Regime</th><th>Status</th></tr></thead><tbody>{empresas.map((empresa) => <tr key={empresa.id}><td>{empresa.razao_social}</td><td>{empresa.nome_fantasia}</td><td>{normalizarCnpj(empresa.cnpj)}</td><td>{empresa.regime_atual}</td><td><span className="status-pill">{empresa.status}</span></td></tr>)}{!empresas.length && <tr><td colSpan="5">Nenhuma empresa encontrada.</td></tr>}</tbody></table></div></div>
+  );
+}
+
+function Placeholder({ title }) { return <div className="legacy-page"><h1>{title}</h1><p>Módulo reservado para a próxima etapa da migração. Vamos ligar este bloco ao Supabase depois que o visual base ficar certo.</p><div className="panel empty-module"><Sparkles /><strong>Próxima etapa</strong><span>Manter visual do HTML anterior e migrar dados módulo por módulo.</span></div></div>; }
