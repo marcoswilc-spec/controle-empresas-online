@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node scripts/patch-layout.js && node scripts/build-static.js",
-    "build": "node scripts/patch-layout.js && node scripts/build-static.js",
+    "dev": "node scripts/patch-layout.js && node scripts/build-static.js && node scripts/remove-app-redirect.js",
+    "build": "node scripts/patch-layout.js && node scripts/build-static.js && node scripts/remove-app-redirect.js",
     "preview": "npx serve dist"
   },
   "dependencies": {
