@@ -1,6 +1,12 @@
 const state = { user:null, organization:null, companies:[], obligations:[], tasks:[], contacts:[] };
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => [...document.querySelectorAll(sel)];
+
+const viewTitles = {
+  dashboard:'Dashboard', empresas:'Empresas', obrigacoes:'Obrigações', tarefas:'Pendências', calendario:'Calendário',
+  cliente:'Área do cliente', contatos:'Agenda / Contatos', documentos:'Documentos', relatorios:'Relatórios', creditos:'Créditos', usuarios:'Usuários'
+};
+
 async function api(path, options={}){
   const res = await fetch(path, { headers:{'Content-Type':'application/json'}, ...options });
   const data = await res.json().catch(()=>({}));
@@ -12,7 +18,7 @@ function showView(id){
   $$('.nav-item').forEach(b=>b.classList.remove('active'));
   $('#view-'+id)?.classList.add('active');
   document.querySelector(`[data-view="${id}"]`)?.classList.add('active');
-  $('#viewTitle').textContent = ({dashboard:'Dashboard',empresas:'Empresas',obrigacoes:'Obrigações',tarefas:'Pendências',cliente:'Área do cliente',relatorios:'Relatórios',creditos:'Créditos'})[id] || 'Painel';
+  $('#viewTitle').textContent = viewTitles[id] || 'Painel';
 }
 function card(title, meta, body, action='') { return `<article class="data-card"><strong>${title}</strong><span>${meta || ''}</span><p>${body || ''}</p>${action}</article>`; }
 function render(){
@@ -23,13 +29,13 @@ function render(){
   $('#kpiTasks').textContent = state.tasks.filter(t=>t.status !== 'done').length;
   $('#kpiCredits').textContent = Number(state.organization?.credits_balance || 0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
   const exp = state.organization?.credits_expires_at ? new Date(state.organization.credits_expires_at).toLocaleDateString('pt-BR') : 'sem validade registrada';
-  $('#nextActions').innerHTML = `Créditos válidos até ${exp}. Pendências abertas: ${state.tasks.filter(t=>t.status !== 'done').length}.`;
+  $('#nextActions').innerHTML = `<b>Créditos válidos até ${exp}</b><p>Pendências abertas: ${state.tasks.filter(t=>t.status !== 'done').length}. Empresas ativas: ${state.companies.length}. Obrigações cadastradas: ${state.obligations.length}.</p>`;
   $('#companiesList').innerHTML = state.companies.map(c=>card(c.legal_name, `${c.tax_regime || ''} · ${c.internal_code || ''}`, `${c.cnpj || 'sem CNPJ'} ${c.blocked ? '· bloqueada' : ''}`)).join('') || '<div class="empty">Nenhuma empresa cadastrada.</div>';
   $('#obligationsList').innerHTML = state.obligations.map(o=>card(o.name, `${o.area} · ${o.frequency}`, o.due_day ? `Vencimento dia ${o.due_day}` : 'Sem dia fixo')).join('') || '<div class="empty">Nenhuma obrigação cadastrada.</div>';
   $('#tasksList').innerHTML = state.tasks.map(t=>card(t.title, `${t.competence} · ${t.status}`, `Responsável: ${t.responsible || 'não definido'}`, `<button class="secondary small" onclick="toggleTask('${t.id}')">${t.status === 'done' ? 'Reabrir' : 'Concluir'}</button>`)).join('') || '<div class="empty">Nenhuma pendência cadastrada.</div>';
   $('#taskCompany').innerHTML = state.companies.map(c=>`<option value="${c.id}">${c.legal_name}</option>`).join('');
   $('#taskObligation').innerHTML = '<option value="">Sem obrigação vinculada</option>' + state.obligations.map(o=>`<option value="${o.id}">${o.name}</option>`).join('');
-  $('#reportBox').innerHTML = `<div class="report-grid"><div><b>${state.companies.length}</b><span>empresas</span></div><div><b>${state.tasks.filter(t=>t.status !== 'done').length}</b><span>pendentes</span></div><div><b>${state.tasks.filter(t=>t.status === 'done').length}</b><span>concluídas</span></div></div>`;
+  $('#reportBox').innerHTML = `<div class="report-grid"><div><b>${state.companies.length}</b><span>empresas</span></div><div><b>${state.tasks.filter(t=>t.status !== 'done').length}</b><span>pendentes</span></div><div><b>${state.tasks.filter(t=>t.status === 'done').length}</b><span>concluídas</span></div><div><b>${state.obligations.length}</b><span>obrigações</span></div></div>`;
 }
 async function load(){
   try{
