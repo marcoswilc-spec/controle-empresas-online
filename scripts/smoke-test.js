@@ -3,12 +3,9 @@ import path from 'node:path';
 
 const required = [
   'server.js',
-  'db/schema.sql',
+  'index.html',
   'public/index.html',
-  'public/app.html',
-  'public/site.js',
-  'public/app.js',
-  'public/styles.css'
+  'public/app.html'
 ];
 
 for (const file of required) {
@@ -18,22 +15,22 @@ for (const file of required) {
   }
 }
 
-const landing = fs.readFileSync('public/index.html', 'utf8');
-const app = fs.readFileSync('public/app.html', 'utf8');
-const css = fs.readFileSync('public/styles.css', 'utf8');
+const finalHtml = fs.readFileSync('index.html', 'utf8');
 const server = fs.readFileSync('server.js', 'utf8');
 
 const checks = [
-  [landing.includes('Entrar como teste'), 'landing precisa ter login de demonstração'],
-  [landing.includes('id="loginForm"'), 'landing precisa ter formulário de login'],
-  [app.includes('right-actions'), 'app precisa ter ações laterais direitas'],
-  [app.includes('view-dashboard'), 'app precisa ter dashboard'],
-  [app.includes('view-empresas'), 'app precisa ter empresas'],
-  [app.includes('view-creditos'), 'app precisa ter créditos'],
-  [css.includes('@media'), 'CSS precisa ter responsividade'],
-  [server.includes('/api/auth/login'), 'backend precisa ter rota de login'],
-  [server.includes('/api/billing/checkout'), 'backend precisa ter rota de cobrança'],
-  [server.includes('DATABASE_URL'), 'backend precisa aceitar Render Postgres']
+  [finalHtml.includes('Controle de Empresa | Obrigações e Solicitações'), 'HTML final precisa manter o título correto'],
+  [finalHtml.includes('id="loginForm"'), 'HTML final precisa manter formulário de login'],
+  [finalHtml.includes('ADMIN_HASH_SHA256'), 'HTML final precisa manter login admin protegido por hash'],
+  [finalHtml.includes('contabil') === false, 'HTML final não deve expor a senha em texto aberto'],
+  [finalHtml.includes('id="app"'), 'HTML final precisa manter o app interno'],
+  [finalHtml.includes('landing-page'), 'HTML final precisa manter página de apresentação'],
+  [finalHtml.includes('view-dashboard'), 'HTML final precisa manter dashboard'],
+  [finalHtml.includes('view-empresas'), 'HTML final precisa manter empresas'],
+  [finalHtml.includes('view-clientes'), 'HTML final precisa manter área do cliente'],
+  [server.includes('renderLegacyHtml'), 'Servidor precisa servir o HTML final da raiz'],
+  [server.includes('emitLevePromo'), 'Servidor precisa injetar popup do EmitLeve'],
+  [server.includes('/api/health'), 'Servidor precisa manter rota de saúde']
 ];
 
 const failed = checks.filter(([ok]) => !ok);
@@ -42,4 +39,4 @@ if (failed.length) {
   process.exit(1);
 }
 
-console.log('Smoke tests OK: estrutura, login, app, responsividade e cobrança básica presentes.');
+console.log('Smoke tests OK: HTML final, login local, landing, app interno e popup EmitLeve presentes.');
