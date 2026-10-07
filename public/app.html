@@ -3,66 +3,112 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Cont.AI | Painel</title>
+  <title>Cont.AI | Controle de Empresas</title>
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body class="app-body">
   <div class="app-shell">
     <aside class="left-nav">
-      <div class="brand compact"><div class="logo">CE</div><div><strong>Cont.AI</strong><span id="orgName">Carregando...</span></div></div>
-      <button class="nav-item active" data-view="dashboard">📊 <span>Dashboard</span></button>
-      <button class="nav-item" data-view="empresas">🏢 <span>Empresas</span></button>
-      <button class="nav-item" data-view="obrigacoes">✅ <span>Obrigações</span></button>
-      <button class="nav-item" data-view="tarefas">📌 <span>Pendências</span></button>
-      <button class="nav-item" data-view="cliente">👤 <span>Área do cliente</span></button>
-      <button class="nav-item" data-view="relatorios">📄 <span>Relatórios</span></button>
-      <button class="nav-item" data-view="creditos">💳 <span>Créditos</span></button>
+      <div class="brand compact">
+        <div class="logo">CE</div>
+        <div><strong>Controle de Empresas</strong><span id="orgName">Carregando...</span></div>
+      </div>
+
+      <div class="nav-group-title">Operação</div>
+      <button class="nav-item active" data-view="dashboard"><i>▦</i><span>Dashboard</span></button>
+      <button class="nav-item" data-view="empresas"><i>🏢</i><span>Empresas</span></button>
+      <button class="nav-item" data-view="obrigacoes"><i>✓</i><span>Obrigações</span></button>
+      <button class="nav-item" data-view="tarefas"><i>●</i><span>Pendências</span></button>
+      <button class="nav-item" data-view="calendario"><i>📅</i><span>Calendário</span></button>
+
+      <div class="nav-group-title">Relacionamento</div>
+      <button class="nav-item" data-view="cliente"><i>👤</i><span>Área do cliente</span></button>
+      <button class="nav-item" data-view="contatos"><i>☎</i><span>Agenda / Contatos</span></button>
+      <button class="nav-item" data-view="documentos"><i>📁</i><span>Documentos</span></button>
+
+      <div class="nav-group-title">Gestão</div>
+      <button class="nav-item" data-view="relatorios"><i>📄</i><span>Relatórios</span></button>
+      <button class="nav-item" data-view="creditos"><i>💳</i><span>Créditos</span></button>
+      <button class="nav-item" data-view="usuarios"><i>⚙</i><span>Usuários</span></button>
+
+      <div class="sidebar-footer">Render + Postgres · v2</div>
     </aside>
 
     <main class="workspace">
       <header class="app-topbar">
-        <div><strong id="viewTitle">Dashboard</strong><span id="userBadge">Validando acesso...</span></div>
-        <div class="top-actions"><button class="secondary small" id="refreshBtn">Revalidar</button><button class="danger small" id="logoutBtn">Sair</button></div>
+        <div>
+          <strong id="viewTitle">Dashboard</strong>
+          <span id="userBadge">Validando acesso...</span>
+        </div>
+        <div class="top-summary">
+          <span>Competência atual</span><b>10/2026</b>
+        </div>
       </header>
 
       <section class="notice" id="modeNotice" hidden></section>
 
       <section class="view active" id="view-dashboard">
+        <div class="page-header">
+          <div><h1>Rotina do escritório</h1><p>Visão rápida das empresas, obrigações, pendências e créditos.</p></div>
+          <div class="page-actions"><button class="secondary small" id="refreshBtn">Atualizar</button></div>
+        </div>
+
         <div class="kpis">
           <article><small>Empresas</small><strong id="kpiCompanies">0</strong><span>em carteira</span></article>
           <article><small>Obrigações</small><strong id="kpiObligations">0</strong><span>ativas</span></article>
           <article><small>Pendências</small><strong id="kpiTasks">0</strong><span>em aberto</span></article>
-          <article><small>Créditos</small><strong id="kpiCredits">0</strong><span>validade mensal</span></article>
+          <article><small>Créditos</small><strong id="kpiCredits">0</strong><span>saldo disponível</span></article>
         </div>
-        <div class="panel"><h2>Próximas ações</h2><div id="nextActions" class="empty">Carregando...</div></div>
+
+        <div class="grid-2">
+          <div class="panel"><div class="panel-title"><h2>Próximas ações</h2><span>prioridade operacional</span></div><div id="nextActions" class="empty">Carregando...</div></div>
+          <div class="panel"><div class="panel-title"><h2>Resumo da competência</h2><span>controle mensal</span></div><div class="progress-card"><b>74%</b><div class="progress"><i style="width:74%"></i></div><p>Competência em andamento. IRPJ/CSLL ficam como exceção trimestral.</p></div></div>
+        </div>
+
+        <div class="shortcuts-row">
+          <button data-view-shortcut="empresas"><b>+ Empresa</b><span>Cadastrar cliente</span></button>
+          <button data-view-shortcut="obrigacoes"><b>+ Obrigação</b><span>Criar rotina</span></button>
+          <button data-view-shortcut="tarefas"><b>+ Pendência</b><span>Gerar cobrança interna</span></button>
+          <button data-view-shortcut="cliente"><b>Portal cliente</b><span>Prévia do acesso externo</span></button>
+        </div>
       </section>
 
       <section class="view" id="view-empresas">
-        <div class="panel"><h2>Nova empresa</h2><form id="companyForm" class="grid-form"><input name="legal_name" placeholder="Razão social" required><input name="trade_name" placeholder="Nome fantasia"><input name="cnpj" placeholder="CNPJ"><input name="internal_code" placeholder="Código interno"><select name="tax_regime"><option>Simples Nacional</option><option>Lucro Presumido</option><option>Lucro Real</option><option>MEI</option><option>Imune/Isenta</option></select><input name="activity" placeholder="Atividade"><button class="primary">Cadastrar empresa</button></form></div>
-        <div class="panel"><h2>Empresas cadastradas</h2><div id="companiesList" class="cards-list"></div></div>
+        <div class="page-header"><div><h1>Empresas</h1><p>Cadastro operacional com regime, código interno e situação.</p></div></div>
+        <div class="panel"><div class="panel-title"><h2>Nova empresa</h2><span>dados básicos</span></div><form id="companyForm" class="grid-form"><input name="legal_name" placeholder="Razão social" required><input name="trade_name" placeholder="Nome fantasia"><input name="cnpj" placeholder="CNPJ"><input name="internal_code" placeholder="Código interno"><select name="tax_regime"><option>Simples Nacional</option><option>Lucro Presumido</option><option>Lucro Real</option><option>MEI</option><option>Imune/Isenta</option></select><input name="activity" placeholder="Atividade"><button class="primary">Cadastrar empresa</button></form></div>
+        <div class="panel"><div class="panel-title"><h2>Empresas cadastradas</h2><span>carteira ativa</span></div><div id="companiesList" class="cards-list"></div></div>
       </section>
 
       <section class="view" id="view-obrigacoes">
-        <div class="panel"><h2>Nova obrigação</h2><form id="obligationForm" class="grid-form"><input name="name" placeholder="Nome da obrigação" required><select name="area"><option>Fiscal</option><option>Contábil</option><option>Trabalhista</option><option>Societário</option><option>Financeiro</option></select><select name="frequency"><option>Mensal</option><option>Trimestral</option><option>Anual</option><option>Eventual</option></select><input name="due_day" type="number" min="1" max="31" placeholder="Dia vencimento"><button class="primary">Cadastrar obrigação</button></form></div>
-        <div class="panel"><h2>Obrigações</h2><div id="obligationsList" class="cards-list"></div></div>
+        <div class="page-header"><div><h1>Obrigações</h1><p>Grupos, frequência, área responsável e vencimentos.</p></div></div>
+        <div class="panel"><div class="panel-title"><h2>Nova obrigação</h2><span>rotina do escritório</span></div><form id="obligationForm" class="grid-form"><input name="name" placeholder="Nome da obrigação" required><select name="area"><option>Fiscal</option><option>Contábil</option><option>Trabalhista</option><option>Societário</option><option>Financeiro</option></select><select name="frequency"><option>Mensal</option><option>Trimestral</option><option>Anual</option><option>Eventual</option></select><input name="due_day" type="number" min="1" max="31" placeholder="Dia vencimento"><button class="primary">Cadastrar obrigação</button></form></div>
+        <div class="panel"><div class="panel-title"><h2>Obrigações cadastradas</h2><span>base interna</span></div><div id="obligationsList" class="cards-list"></div></div>
       </section>
 
       <section class="view" id="view-tarefas">
-        <div class="panel"><h2>Nova pendência</h2><form id="taskForm" class="grid-form"><select name="company_id" id="taskCompany"></select><select name="obligation_id" id="taskObligation"></select><input name="competence" placeholder="Competência ex: 2026-10" required><input name="title" placeholder="Título da pendência" required><input name="responsible" placeholder="Responsável"><input name="due_date" type="date"><button class="primary">Criar pendência</button></form></div>
-        <div class="panel"><h2>Pendências</h2><div id="tasksList" class="cards-list"></div></div>
+        <div class="page-header"><div><h1>Pendências</h1><p>Acompanhamento por empresa, competência, responsável e prazo.</p></div></div>
+        <div class="panel"><div class="panel-title"><h2>Nova pendência</h2><span>controle de entrega</span></div><form id="taskForm" class="grid-form"><select name="company_id" id="taskCompany"></select><select name="obligation_id" id="taskObligation"></select><input name="competence" placeholder="Competência ex: 2026-10" required><input name="title" placeholder="Título da pendência" required><input name="responsible" placeholder="Responsável"><input name="due_date" type="date"><button class="primary">Criar pendência</button></form></div>
+        <div class="panel"><div class="panel-title"><h2>Pendências abertas/concluídas</h2><span>clique para concluir</span></div><div id="tasksList" class="cards-list"></div></div>
       </section>
 
-      <section class="view" id="view-cliente"><div class="panel"><h2>Área do cliente</h2><p>Estrutura reservada para cliente visualizar solicitações, enviar documentos, baixar guias e acompanhar pendências da própria empresa.</p><div class="placeholder-grid"><div>Login do cliente</div><div>Solicitações</div><div>Documentos</div><div>Guias</div></div></div></section>
-      <section class="view" id="view-relatorios"><div class="panel"><h2>Relatórios</h2><p>Resumo por empresa, pendências abertas, concluídas e sem responsabilidade anterior.</p><div id="reportBox"></div></div></section>
-      <section class="view" id="view-creditos"><div class="panel"><h2>Comprar créditos</h2><p>Créditos válidos por 30 dias após confirmação do Mercado Pago.</p><form id="creditForm" class="inline-form"><input name="amount" type="number" min="1" step="0.01" placeholder="Valor em R$" required><button class="primary">Gerar pagamento</button></form><p id="creditMessage" class="form-message"></p></div></section>
+      <section class="view" id="view-calendario"><div class="page-header"><div><h1>Calendário</h1><p>Visão de atrasadas, hoje e próximos vencimentos.</p></div></div><div class="panel"><div class="calendar-board"><div><b>Atrasadas</b><span>Sem dados críticos</span></div><div><b>Hoje</b><span>Conferir pendências abertas</span></div><div><b>Próximos 7 dias</b><span>Obrigações mensais</span></div></div></div></section>
+
+      <section class="view" id="view-cliente"><div class="page-header"><div><h1>Área do cliente</h1><p>O cliente deve enxergar apenas solicitações, documentos, guias e status da própria empresa.</p></div></div><div class="panel"><div class="client-mock"><div><b>Solicitações</b><span>Enviar extratos, notas e folha</span></div><div><b>Documentos</b><span>XML, PDF, guias e comprovantes</span></div><div><b>Status</b><span>Acesso ativo, bloqueado ou pendente</span></div><div><b>Contato</b><span>Responsável fiscal/contábil</span></div></div></div></section>
+
+      <section class="view" id="view-contatos"><div class="page-header"><div><h1>Agenda / Contatos</h1><p>Contatos por empresa, responsáveis internos e canais do cliente.</p></div></div><div class="panel"><div class="placeholder-grid"><div>Contato fiscal</div><div>Contato financeiro</div><div>WhatsApp</div><div>E-mail oficial</div></div></div></section>
+      <section class="view" id="view-documentos"><div class="page-header"><div><h1>Documentos</h1><p>Organização por empresa, competência, tipo e origem.</p></div></div><div class="panel"><div class="placeholder-grid"><div>Guias</div><div>Comprovantes</div><div>Contratos</div><div>Solicitações</div></div></div></section>
+      <section class="view" id="view-relatorios"><div class="page-header"><div><h1>Relatórios</h1><p>Resumo por empresa, competência, pendentes e concluídas.</p></div></div><div class="panel"><div id="reportBox"></div></div></section>
+      <section class="view" id="view-creditos"><div class="page-header"><div><h1>Créditos</h1><p>Compra via Mercado Pago, saldo e validade de 30 dias.</p></div></div><div class="panel"><form id="creditForm" class="inline-form"><input name="amount" type="number" min="1" step="0.01" placeholder="Valor em R$" required><button class="primary">Gerar pagamento</button></form><p id="creditMessage" class="form-message"></p></div></section>
+      <section class="view" id="view-usuarios"><div class="page-header"><div><h1>Usuários</h1><p>Admin, responsáveis internos e acesso cliente.</p></div></div><div class="panel"><div class="placeholder-grid"><div>Admin</div><div>Responsável fiscal</div><div>Responsável contábil</div><div>Cliente</div></div></div></section>
     </main>
 
     <aside class="right-actions" aria-label="Ações rápidas">
-      <button title="Revalidar" id="quickRefresh">↻<span>Revalidar</span></button>
+      <button title="Atualizar" id="quickRefresh">↻<span>Atualizar</span></button>
       <button title="Nova empresa" data-view-shortcut="empresas">+<span>Empresa</span></button>
       <button title="Nova obrigação" data-view-shortcut="obrigacoes">✓<span>Obrigação</span></button>
+      <button title="Pendências" data-view-shortcut="tarefas">●<span>Pendências</span></button>
       <button title="Créditos" data-view-shortcut="creditos">$<span>Créditos</span></button>
-      <button title="Relatório" data-view-shortcut="relatorios">R<span>Relatório</span></button>
+      <button title="Sair" id="logoutBtn">×<span>Sair</span></button>
     </aside>
   </div>
 
