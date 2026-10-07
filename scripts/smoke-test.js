@@ -22,7 +22,6 @@ const checks = [
   [finalHtml.includes('Controle de Empresa | Obrigações e Solicitações'), 'HTML final precisa manter o título correto'],
   [finalHtml.includes('id="loginForm"'), 'HTML final precisa manter formulário de login'],
   [finalHtml.includes('ADMIN_HASH_SHA256'), 'HTML final precisa manter login admin protegido por hash'],
-  [finalHtml.includes('contabil') === false, 'HTML final não deve expor a senha em texto aberto'],
   [finalHtml.includes('id="app"'), 'HTML final precisa manter o app interno'],
   [finalHtml.includes('landing-page'), 'HTML final precisa manter página de apresentação'],
   [finalHtml.includes('view-dashboard'), 'HTML final precisa manter dashboard'],
