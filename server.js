@@ -1,296 +1,98 @@
-import 'dotenv/config';
 import express from 'express';
-import cookieParser from 'cookie-parser';
-import jwt from 'jsonwebtoken';
-import bcrypt from 'bcryptjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import pg from 'pg';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 10000;
-const JWT_SECRET = process.env.JWT_SECRET || 'dev-only-change-me';
-const hasDatabase = Boolean(process.env.DATABASE_URL);
 
 app.use(express.json({ limit: '2mb' }));
-app.use(cookieParser());
+
+const emitLeveCss = `
+<style id="emitLevePromoStyle">
+.emit-promo-overlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;padding:24px;background:rgba(6,10,18,.62);backdrop-filter:blur(8px);z-index:4500}.emit-promo-overlay.open{display:flex}.emit-promo-wrap{position:relative;width:min(760px,100%)}.emit-promo-card{width:100%;background:linear-gradient(145deg,rgba(8,14,25,.96),rgba(24,32,50,.96));color:#f5f7fb;border:1px solid rgba(255,255,255,.12);border-radius:26px;overflow:hidden;box-shadow:0 26px 70px rgba(0,0,0,.42);display:grid;grid-template-columns:1.06fr .94fr}.emit-promo-main{padding:28px 28px 24px}.emit-promo-side{background:linear-gradient(160deg,rgba(180,25,25,.18),rgba(255,255,255,.04));border-left:1px solid rgba(255,255,255,.08);padding:28px 24px;display:flex;flex-direction:column;justify-content:space-between;gap:18px}.emit-badge{display:inline-flex;align-items:center;gap:10px;padding:8px 14px;border-radius:999px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.08);font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}.emit-badge-mark{width:30px;height:30px;border-radius:10px;display:grid;place-items:center;background:linear-gradient(135deg,#cf2f1d,#8d1212);color:#fff;font-weight:800;box-shadow:0 8px 20px rgba(207,47,29,.28)}.emit-promo-title{margin:16px 0 10px;font-size:34px;line-height:1.08;font-weight:800}.emit-promo-text{margin:0 0 20px;color:rgba(241,245,249,.82);font-size:15px;line-height:1.7}.emit-promo-list{list-style:none;margin:0;padding:0;display:grid;gap:12px}.emit-promo-list li{display:flex;gap:12px;align-items:flex-start;color:rgba(241,245,249,.92);font-size:14px;line-height:1.5}.emit-promo-dot{width:10px;height:10px;border-radius:999px;margin-top:6px;background:#cf2f1d;box-shadow:0 0 0 6px rgba(207,47,29,.12);flex:0 0 auto}.emit-stat-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.emit-stat{padding:16px 14px;border-radius:18px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.07)}.emit-stat strong{display:block;font-size:24px;line-height:1;margin-bottom:6px;color:#fff}.emit-stat span{font-size:12px;color:rgba(241,245,249,.74)}.emit-credit-box{padding:16px;border-radius:20px;background:linear-gradient(135deg,rgba(207,47,29,.22),rgba(255,255,255,.06));border:1px solid rgba(255,255,255,.08);color:#fff}.emit-credit-box strong{display:block;margin-bottom:8px;font-size:15px}.emit-credit-box p{margin:0;font-size:13px;line-height:1.6;color:rgba(255,255,255,.86)}.emit-promo-actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:22px}.emit-btn{appearance:none;border:0;border-radius:16px;padding:13px 18px;font-size:14px;font-weight:700;cursor:pointer;text-decoration:none;transition:transform .16s ease,box-shadow .16s ease,opacity .16s ease}.emit-btn:hover{transform:translateY(-1px)}.emit-btn.primary{background:linear-gradient(135deg,#cf2f1d,#a51616);color:#fff;box-shadow:0 12px 28px rgba(207,47,29,.26)}.emit-btn.ghost{background:rgba(255,255,255,.08);color:#fff;border:1px solid rgba(255,255,255,.1)}.emit-close{position:absolute;top:16px;right:16px;width:42px;height:42px;border-radius:14px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.07);color:#fff;font-size:18px;cursor:pointer;z-index:2}@media(max-width:880px){.emit-promo-card{grid-template-columns:1fr}.emit-promo-side{border-left:0;border-top:1px solid rgba(255,255,255,.08)}}@media(max-width:640px){.emit-promo-overlay{padding:16px}.emit-promo-main,.emit-promo-side{padding:22px 18px}.emit-promo-title{font-size:28px}.emit-promo-actions{flex-direction:column}.emit-btn{width:100%;text-align:center}}
+</style>
+`;
+
+const emitLeveHtml = `
+<div class="emit-promo-overlay" id="emitLevePromo" aria-hidden="true">
+  <div class="emit-promo-wrap">
+    <button type="button" class="emit-close" id="emitLevePromoClose" aria-label="Fechar anúncio do EmitLeve">✕</button>
+    <div class="emit-promo-card">
+      <div class="emit-promo-main">
+        <div class="emit-badge"><span class="emit-badge-mark">EL</span> Destaque do ecossistema</div>
+        <h3 class="emit-promo-title">Conheça o EmitLeve</h3>
+        <p class="emit-promo-text">Emissão prática de NFSe com fluxo pensado para o contador: onboarding guiado, envio por WhatsApp, importação de XML/PDF, compra de créditos e acompanhamento do cliente em um único lugar.</p>
+        <ul class="emit-promo-list">
+          <li><span class="emit-promo-dot"></span><span>Compra de créditos com validade de <strong>30 dias</strong>, ideal para clientes com emissão sob demanda.</span></li>
+          <li><span class="emit-promo-dot"></span><span>Integração com cobrança para automatizar a liberação de créditos e acompanhar pagamentos.</span></li>
+          <li><span class="emit-promo-dot"></span><span>Experiência simples para o cliente e controle operacional mais claro para o escritório.</span></li>
+        </ul>
+        <div class="emit-promo-actions">
+          <a class="emit-btn primary" href="https://emitleve.com.br" target="_blank" rel="noopener noreferrer">Quero conhecer o EmitLeve</a>
+          <button type="button" class="emit-btn ghost" id="emitLevePromoLater">Lembrar depois</button>
+        </div>
+      </div>
+      <div class="emit-promo-side">
+        <div class="emit-stat-grid">
+          <div class="emit-stat"><strong>NFSe</strong><span>Emissão simplificada com foco em serviço</span></div>
+          <div class="emit-stat"><strong>WhatsApp</strong><span>Relacionamento mais humano com o cliente</span></div>
+          <div class="emit-stat"><strong>XML/PDF</strong><span>Importação para reduzir digitação manual</span></div>
+          <div class="emit-stat"><strong>Créditos</strong><span>Recarga sob demanda e uso controlado</span></div>
+        </div>
+        <div class="emit-credit-box"><strong>Oferta combinada para o escritório</strong><p>Use o Controle de Empresa para organizar a operação e apresente o EmitLeve como extensão comercial para clientes que precisam emitir notas com praticidade.</p></div>
+      </div>
+    </div>
+  </div>
+</div>
+`;
+
+const emitLeveJs = `
+<script id="emitLevePromoScript">
+(function(){
+  const KEY = 'controle_empresa_emitLeve_promo_v1';
+  function open(){ const el=document.getElementById('emitLevePromo'); if(el){ el.classList.add('open'); el.setAttribute('aria-hidden','false'); } }
+  function close(mark){ const el=document.getElementById('emitLevePromo'); if(el){ el.classList.remove('open'); el.setAttribute('aria-hidden','true'); } if(mark){ try{ sessionStorage.setItem(KEY,'1'); }catch(e){} } }
+  function shouldOpen(){ try{ return sessionStorage.getItem(KEY) !== '1'; }catch(e){ return true; } }
+  function bind(){
+    document.getElementById('emitLevePromoClose')?.addEventListener('click',()=>close(true));
+    document.getElementById('emitLevePromoLater')?.addEventListener('click',()=>close(true));
+    document.getElementById('emitLevePromo')?.addEventListener('click',e=>{ if(e.target && e.target.id === 'emitLevePromo') close(true); });
+  }
+  document.addEventListener('DOMContentLoaded', function(){
+    bind();
+    const obs = new MutationObserver(function(){
+      if(document.body.classList.contains('is-authenticated') && shouldOpen()){
+        setTimeout(open, 900);
+        obs.disconnect();
+      }
+    });
+    obs.observe(document.body,{attributes:true,attributeFilter:['class']});
+    if(document.body.classList.contains('is-authenticated') && shouldOpen()) setTimeout(open, 900);
+  });
+})();
+</script>
+`;
+
+function renderLegacyHtml() {
+  const filePath = path.join(__dirname, 'index.html');
+  let html = fs.readFileSync(filePath, 'utf8');
+  if (!html.includes('emitLevePromoStyle')) html = html.replace('</head>', `${emitLeveCss}\n</head>`);
+  if (!html.includes('emitLevePromo"')) html = html.replace('</body>', `${emitLeveHtml}\n${emitLeveJs}\n</body>`);
+  return html;
+}
+
+app.get('/api/health', (_req, res) => {
+  res.json({ ok: true, mode: 'legacy-html-final', source: 'index.html', timestamp: new Date().toISOString() });
+});
+
+app.get(['/','/app','/app.html','/demo'], (_req, res) => {
+  res.type('html').send(renderLegacyHtml());
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
+app.get('*', (_req, res) => res.type('html').send(renderLegacyHtml()));
 
-let pool = null;
-const memory = {
-  org: {
-    id: 'demo-org',
-    name: 'Escritório Demonstração',
-    slug: 'demo',
-    credits_balance: 89.9,
-    credits_expires_at: new Date(Date.now() + 30 * 86400000).toISOString(),
-    status: 'active'
-  },
-  users: [],
-  companies: [],
-  obligations: [],
-  tasks: [],
-  contacts: [],
-  payment_orders: [],
-  audit_logs: []
-};
-
-function normalizeEmail(email) {
-  return String(email || '').trim().toLowerCase();
-}
-
-function signToken(user) {
-  return jwt.sign({ sub: user.id, organization_id: user.organization_id, role: user.role, email: user.email }, JWT_SECRET, { expiresIn: '8h' });
-}
-
-function setAuthCookie(res, token) {
-  res.cookie('ce_token', token, {
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
-    maxAge: 8 * 60 * 60 * 1000
-  });
-}
-
-async function dbQuery(sql, params = []) {
-  if (!pool) throw new Error('Banco Render Postgres não configurado.');
-  return pool.query(sql, params);
-}
-
-async function migrate() {
-  if (!hasDatabase) return;
-  pool = new pg.Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: process.env.DATABASE_SSL === 'false' ? false : { rejectUnauthorized: false }
-  });
-  const schema = fs.readFileSync(path.join(__dirname, 'db/schema.sql'), 'utf8');
-  await pool.query(schema);
-  await seedDemoData();
-}
-
-async function seedDemoData() {
-  if (pool) {
-    const orgResult = await pool.query(`
-      insert into organizations(name, slug, plan, status, credits_balance, credits_expires_at)
-      values('Escritório Demonstração', 'demo', 'trial', 'active', 89.90, now() + interval '30 days')
-      on conflict(slug) do update set updated_at = now()
-      returning *
-    `);
-    const org = orgResult.rows[0];
-    const demoEmail = 'demo@contai.test';
-    const exists = await pool.query('select id from users where email=$1', [demoEmail]);
-    if (!exists.rowCount) {
-      const hash = await bcrypt.hash('demo123', 10);
-      await pool.query(
-        'insert into users(organization_id,name,email,password_hash,role,status) values($1,$2,$3,$4,$5,$6)',
-        [org.id, 'Usuário Demonstração', demoEmail, hash, 'admin', 'active']
-      );
-    }
-    await pool.query(`
-      insert into obligations(organization_id,name,area,frequency,due_day)
-      select $1, x.name, x.area, 'Mensal', x.due_day
-      from (values
-        ('Buscar notas fiscais','Fiscal',5),
-        ('Conciliação bancária','Contábil',10),
-        ('DCTFWeb','Trabalhista',15),
-        ('Relatório mensal ao cliente','Contábil',20)
-      ) as x(name,area,due_day)
-      where not exists (select 1 from obligations where organization_id=$1)
-    `, [org.id]);
-    await pool.query(`
-      insert into companies(organization_id,legal_name,trade_name,cnpj,internal_code,tax_regime,activity,status)
-      select $1,'Empresa Teste Online LTDA','Empresa Teste','00000000000100','001','Simples Nacional','Serviços contábeis','active'
-      where not exists (select 1 from companies where organization_id=$1)
-    `, [org.id]);
-    return;
-  }
-  if (!memory.users.length) {
-    const hash = await bcrypt.hash('demo123', 10);
-    memory.users.push({ id: 'demo-user', organization_id: memory.org.id, name: 'Usuário Demonstração', email: 'demo@contai.test', password_hash: hash, role: 'admin', status: 'active' });
-    memory.companies.push({ id: 'demo-company', organization_id: memory.org.id, legal_name: 'Empresa Teste Online LTDA', trade_name: 'Empresa Teste', cnpj: '00000000000100', internal_code: '001', tax_regime: 'Simples Nacional', activity: 'Serviços contábeis', status: 'active', blocked: false });
-    memory.obligations.push(
-      { id: 'obl-1', organization_id: memory.org.id, name: 'Buscar notas fiscais', area: 'Fiscal', frequency: 'Mensal', due_day: 5, active: true },
-      { id: 'obl-2', organization_id: memory.org.id, name: 'Conciliação bancária', area: 'Contábil', frequency: 'Mensal', due_day: 10, active: true },
-      { id: 'obl-3', organization_id: memory.org.id, name: 'DCTFWeb', area: 'Trabalhista', frequency: 'Mensal', due_day: 15, active: true },
-      { id: 'obl-4', organization_id: memory.org.id, name: 'Relatório mensal ao cliente', area: 'Contábil', frequency: 'Mensal', due_day: 20, active: true }
-    );
-  }
-}
-
-function requireAuth(req, res, next) {
-  const token = req.cookies.ce_token;
-  if (!token) return res.status(401).json({ error: 'Acesso não autenticado.' });
-  try {
-    req.user = jwt.verify(token, JWT_SECRET);
-    return next();
-  } catch (error) {
-    return res.status(401).json({ error: 'Sessão expirada.' });
-  }
-}
-
-async function getCurrentUser(userId) {
-  if (pool) {
-    const result = await dbQuery('select id, organization_id, name, email, role, status from users where id=$1 and status=$2', [userId, 'active']);
-    return result.rows[0] || null;
-  }
-  return memory.users.find((u) => u.id === userId && u.status === 'active') || null;
-}
-
-async function getOrg(orgId) {
-  if (pool) {
-    const result = await dbQuery('select * from organizations where id=$1', [orgId]);
-    return result.rows[0] || null;
-  }
-  return memory.org.id === orgId ? memory.org : null;
-}
-
-app.get('/api/health', async (_req, res) => {
-  res.json({ ok: true, mode: hasDatabase ? 'render-postgres' : 'demo-memory', timestamp: new Date().toISOString() });
-});
-
-app.post('/api/auth/login', async (req, res) => {
-  const email = normalizeEmail(req.body.email);
-  const password = String(req.body.password || '');
-  let user;
-  if (pool) {
-    const result = await dbQuery('select * from users where email=$1 and status=$2', [email, 'active']);
-    user = result.rows[0];
-  } else {
-    user = memory.users.find((u) => u.email === email && u.status === 'active');
-  }
-  if (!user) return res.status(401).json({ error: 'E-mail ou senha inválidos.' });
-  const ok = await bcrypt.compare(password, user.password_hash);
-  if (!ok) return res.status(401).json({ error: 'E-mail ou senha inválidos.' });
-  const token = signToken(user);
-  setAuthCookie(res, token);
-  res.json({ user: { id: user.id, name: user.name, email: user.email, role: user.role } });
-});
-
-app.post('/api/auth/logout', (_req, res) => {
-  res.clearCookie('ce_token');
-  res.json({ ok: true });
-});
-
-app.get('/api/me', requireAuth, async (req, res) => {
-  const user = await getCurrentUser(req.user.sub);
-  if (!user) return res.status(401).json({ error: 'Usuário não encontrado.' });
-  const org = await getOrg(user.organization_id);
-  res.json({ user, organization: org, databaseMode: hasDatabase ? 'render-postgres' : 'demo-memory' });
-});
-
-app.get('/api/bootstrap', requireAuth, async (req, res) => {
-  const orgId = req.user.organization_id;
-  if (pool) {
-    const [org, companies, obligations, tasks, contacts] = await Promise.all([
-      dbQuery('select * from organizations where id=$1', [orgId]),
-      dbQuery('select * from companies where organization_id=$1 order by created_at desc', [orgId]),
-      dbQuery('select * from obligations where organization_id=$1 order by area,name', [orgId]),
-      dbQuery('select * from tasks where organization_id=$1 order by created_at desc limit 200', [orgId]),
-      dbQuery('select * from contacts where organization_id=$1 order by created_at desc limit 200', [orgId])
-    ]);
-    return res.json({ organization: org.rows[0], companies: companies.rows, obligations: obligations.rows, tasks: tasks.rows, contacts: contacts.rows });
-  }
-  res.json({ organization: memory.org, companies: memory.companies, obligations: memory.obligations, tasks: memory.tasks, contacts: memory.contacts });
-});
-
-app.post('/api/companies', requireAuth, async (req, res) => {
-  const orgId = req.user.organization_id;
-  const payload = {
-    legal_name: String(req.body.legal_name || '').trim(),
-    trade_name: String(req.body.trade_name || '').trim(),
-    cnpj: String(req.body.cnpj || '').replace(/\D/g, ''),
-    internal_code: String(req.body.internal_code || '').trim(),
-    tax_regime: String(req.body.tax_regime || 'Simples Nacional').trim(),
-    activity: String(req.body.activity || '').trim(),
-    status: String(req.body.status || 'active').trim()
-  };
-  if (!payload.legal_name) return res.status(400).json({ error: 'Informe a razão social.' });
-  if (pool) {
-    const result = await dbQuery(`insert into companies(organization_id,legal_name,trade_name,cnpj,internal_code,tax_regime,activity,status)
-      values($1,$2,$3,$4,$5,$6,$7,$8) returning *`, [orgId, payload.legal_name, payload.trade_name, payload.cnpj, payload.internal_code, payload.tax_regime, payload.activity, payload.status]);
-    return res.status(201).json(result.rows[0]);
-  }
-  const company = { id: `company-${Date.now()}`, organization_id: orgId, ...payload, blocked: false };
-  memory.companies.unshift(company);
-  res.status(201).json(company);
-});
-
-app.post('/api/obligations', requireAuth, async (req, res) => {
-  const orgId = req.user.organization_id;
-  const payload = {
-    name: String(req.body.name || '').trim(),
-    area: String(req.body.area || 'Fiscal').trim(),
-    frequency: String(req.body.frequency || 'Mensal').trim(),
-    due_day: Number(req.body.due_day || 0) || null
-  };
-  if (!payload.name) return res.status(400).json({ error: 'Informe o nome da obrigação.' });
-  if (pool) {
-    const result = await dbQuery(`insert into obligations(organization_id,name,area,frequency,due_day) values($1,$2,$3,$4,$5) returning *`, [orgId, payload.name, payload.area, payload.frequency, payload.due_day]);
-    return res.status(201).json(result.rows[0]);
-  }
-  const obligation = { id: `obl-${Date.now()}`, organization_id: orgId, active: true, ...payload };
-  memory.obligations.unshift(obligation);
-  res.status(201).json(obligation);
-});
-
-app.post('/api/tasks', requireAuth, async (req, res) => {
-  const orgId = req.user.organization_id;
-  const payload = {
-    company_id: req.body.company_id,
-    obligation_id: req.body.obligation_id || null,
-    competence: String(req.body.competence || '').trim(),
-    title: String(req.body.title || '').trim(),
-    responsible: String(req.body.responsible || '').trim(),
-    due_date: req.body.due_date || null,
-    notes: String(req.body.notes || '').trim()
-  };
-  if (!payload.company_id || !payload.title || !payload.competence) return res.status(400).json({ error: 'Empresa, competência e título são obrigatórios.' });
-  if (pool) {
-    const result = await dbQuery(`insert into tasks(organization_id,company_id,obligation_id,competence,title,responsible,due_date,notes)
-      values($1,$2,$3,$4,$5,$6,$7,$8) returning *`, [orgId, payload.company_id, payload.obligation_id, payload.competence, payload.title, payload.responsible, payload.due_date, payload.notes]);
-    return res.status(201).json(result.rows[0]);
-  }
-  const task = { id: `task-${Date.now()}`, organization_id: orgId, status: 'pending', ...payload };
-  memory.tasks.unshift(task);
-  res.status(201).json(task);
-});
-
-app.patch('/api/tasks/:id/toggle', requireAuth, async (req, res) => {
-  const orgId = req.user.organization_id;
-  if (pool) {
-    const existing = await dbQuery('select * from tasks where id=$1 and organization_id=$2', [req.params.id, orgId]);
-    if (!existing.rowCount) return res.status(404).json({ error: 'Tarefa não encontrada.' });
-    const next = existing.rows[0].status === 'done' ? 'pending' : 'done';
-    const result = await dbQuery(`update tasks set status=$1, completed_at=case when $1='done' then now() else null end, updated_at=now() where id=$2 returning *`, [next, req.params.id]);
-    return res.json(result.rows[0]);
-  }
-  const task = memory.tasks.find((t) => t.id === req.params.id && t.organization_id === orgId);
-  if (!task) return res.status(404).json({ error: 'Tarefa não encontrada.' });
-  task.status = task.status === 'done' ? 'pending' : 'done';
-  task.completed_at = task.status === 'done' ? new Date().toISOString() : null;
-  res.json(task);
-});
-
-app.post('/api/billing/checkout', requireAuth, async (req, res) => {
-  const amount = Number(req.body.amount || 0);
-  if (!amount || amount < 1) return res.status(400).json({ error: 'Informe um valor válido.' });
-  if (!process.env.MERCADO_PAGO_ACCESS_TOKEN) {
-    return res.status(501).json({ error: 'Mercado Pago ainda não configurado. Configure MERCADO_PAGO_ACCESS_TOKEN no Render.', mode: 'pending_config' });
-  }
-  return res.status(202).json({ error: 'Checkout Mercado Pago pendente de ativação final.', mode: 'stub', amount, credits_days: 30 });
-});
-
-app.get('/app', (_req, res) => res.sendFile(path.join(__dirname, 'public/app.html')));
-app.get('/demo', (_req, res) => res.redirect('/?demo=1'));
-app.get('*', (_req, res) => res.sendFile(path.join(__dirname, 'public/index.html')));
-
-await seedDemoData();
-migrate().then(() => {
-  app.listen(PORT, () => console.log(`Controle Empresas rodando na porta ${PORT} - modo ${hasDatabase ? 'Render Postgres' : 'demo-memory'}`));
-}).catch((error) => {
-  console.error('Falha ao iniciar banco:', error);
-  process.exit(1);
-});
+app.listen(PORT, () => console.log(`Controle de Empresa rodando na porta ${PORT} - site final em index.html`));
