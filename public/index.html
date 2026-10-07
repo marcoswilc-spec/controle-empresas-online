@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cont.AI | Controle de Empresas</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body class="landing-body">
+  <header class="site-header">
+    <div class="brand"><div class="logo">CE</div><div><strong>Cont.AI</strong><span>Controle de empresas para escritórios contábeis</span></div></div>
+    <nav>
+      <a href="#funcionalidades">Funcionalidades</a>
+      <a href="#demo">Demonstração</a>
+      <a href="#planos">Planos</a>
+      <button class="login-pill" data-open-login><span>↗</span> Fazer login</button>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="hero-copy">
+        <p class="eyebrow">Sistema de gestão contábil</p>
+        <h1>Controle empresas, obrigações, documentos e prazos em um painel único.</h1>
+        <p>Uma operação mais organizada para escritório contábil: competências, responsáveis, alertas, área do cliente, relatórios e cobrança por créditos válidos por 30 dias.</p>
+        <div class="hero-actions">
+          <button class="primary" data-open-login>Entrar no sistema</button>
+          <button class="secondary" id="demoLogin">Entrar como teste</button>
+        </div>
+        <div class="hero-metrics">
+          <div><strong>01</strong><span>painel central</span></div>
+          <div><strong>05</strong><span>áreas integradas</span></div>
+          <div><strong>30 dias</strong><span>validade dos créditos</span></div>
+        </div>
+      </div>
+      <aside class="preview-card" aria-label="Prévia visual do sistema">
+        <div class="browser-dots"><i></i><i></i><i></i><strong>Painel contábil inteligente</strong></div>
+        <div class="dashboard-art">
+          <div class="art-card top"><small>Produtividade</small><strong>74%</strong><span>competência em andamento</span></div>
+          <div class="art-card bottom"><small>Clientes ativos</small><strong>128</strong><span>acessos organizados</span></div>
+        </div>
+        <div class="preview-grid">
+          <div><small>Pendências</small><strong>27</strong><span>exigem acompanhamento</span></div>
+          <div><small>Empresas</small><strong>128</strong><span>em carteira</span></div>
+          <div><small>Vencendo</small><strong>12</strong><span>próximos 5 dias</span></div>
+          <div><small>Concluídas</small><strong>74%</strong><span>competência atual</span></div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="section" id="funcionalidades">
+      <p class="eyebrow">Funcionalidades</p>
+      <h2>O que o programa entrega</h2>
+      <div class="features">
+        <article><b>Empresas</b><p>Cadastro, regime, código interno, início do cliente, bloqueio e contatos.</p></article>
+        <article><b>Obrigações</b><p>Grupos, frequência, prazos, tarefas por competência e responsáveis.</p></article>
+        <article><b>Calendário</b><p>Alertas de vencimento, atrasadas, próximas obrigações e impressão.</p></article>
+        <article><b>Relatórios</b><p>Feito, pendente, sem responsabilidade anterior e visão por empresa.</p></article>
+        <article><b>Área do cliente</b><p>Cliente acessa apenas o que precisa enviar, baixar ou acompanhar.</p></article>
+        <article><b>Créditos</b><p>Compra via Mercado Pago, validade de 30 dias e bloqueio por saldo/vencimento.</p></article>
+      </div>
+    </section>
+
+    <section class="section demo-section" id="demo">
+      <div>
+        <p class="eyebrow">Demonstração</p>
+        <h2>Teste antes de usar com cliente real.</h2>
+        <p>O ambiente de teste entra com dados fictícios, sem CNPJ real e sem emissão externa. Serve para validar login, fluxo, menu, cadastros e relatórios.</p>
+      </div>
+      <button class="primary" id="demoLogin2">Entrar como teste</button>
+    </section>
+
+    <section class="section" id="planos">
+      <p class="eyebrow">Planos</p>
+      <h2>Modelo de cobrança</h2>
+      <div class="plans">
+        <article><span>Base</span><strong>R$ 89,90</strong><p>Crédito mensal com validade de 30 dias para acesso ao sistema.</p></article>
+        <article><span>Usuário extra</span><strong>R$ 39,90</strong><p>Valor adicional por usuário operacional vinculado ao escritório.</p></article>
+        <article><span>Empresas</span><strong>Ilimitadas</strong><p>A cobrança fica por acesso/crédito, não por quantidade de empresas.</p></article>
+      </div>
+    </section>
+  </main>
+
+  <div class="modal" id="loginModal" hidden>
+    <div class="login-card">
+      <button class="close" data-close-login>×</button>
+      <div class="login-info"><p class="eyebrow">Acesso seguro</p><h2>Entrar no Cont.AI</h2><p>Use seu e-mail e senha. Para demonstração, clique em “Entrar como teste”.</p></div>
+      <form id="loginForm" class="login-form">
+        <label>E-mail</label><input name="email" type="email" autocomplete="username" required placeholder="seu@email.com.br">
+        <label>Senha</label><input name="password" type="password" autocomplete="current-password" required placeholder="Digite sua senha">
+        <button class="primary" type="submit">Entrar</button>
+        <button class="secondary" type="button" id="demoLogin3">Entrar como teste</button>
+        <p class="form-message" id="loginMessage"></p>
+      </form>
+    </div>
+  </div>
+
+  <script src="/site.js"></script>
+</body>
+</html>
