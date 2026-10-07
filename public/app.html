@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cont.AI | Painel</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body class="app-body">
+  <div class="app-shell">
+    <aside class="left-nav">
+      <div class="brand compact"><div class="logo">CE</div><div><strong>Cont.AI</strong><span id="orgName">Carregando...</span></div></div>
+      <button class="nav-item active" data-view="dashboard">📊 <span>Dashboard</span></button>
+      <button class="nav-item" data-view="empresas">🏢 <span>Empresas</span></button>
+      <button class="nav-item" data-view="obrigacoes">✅ <span>Obrigações</span></button>
+      <button class="nav-item" data-view="tarefas">📌 <span>Pendências</span></button>
+      <button class="nav-item" data-view="cliente">👤 <span>Área do cliente</span></button>
+      <button class="nav-item" data-view="relatorios">📄 <span>Relatórios</span></button>
+      <button class="nav-item" data-view="creditos">💳 <span>Créditos</span></button>
+    </aside>
+
+    <main class="workspace">
+      <header class="app-topbar">
+        <div><strong id="viewTitle">Dashboard</strong><span id="userBadge">Validando acesso...</span></div>
+        <div class="top-actions"><button class="secondary small" id="refreshBtn">Revalidar</button><button class="danger small" id="logoutBtn">Sair</button></div>
+      </header>
+
+      <section class="notice" id="modeNotice" hidden></section>
+
+      <section class="view active" id="view-dashboard">
+        <div class="kpis">
+          <article><small>Empresas</small><strong id="kpiCompanies">0</strong><span>em carteira</span></article>
+          <article><small>Obrigações</small><strong id="kpiObligations">0</strong><span>ativas</span></article>
+          <article><small>Pendências</small><strong id="kpiTasks">0</strong><span>em aberto</span></article>
+          <article><small>Créditos</small><strong id="kpiCredits">0</strong><span>validade mensal</span></article>
+        </div>
+        <div class="panel"><h2>Próximas ações</h2><div id="nextActions" class="empty">Carregando...</div></div>
+      </section>
+
+      <section class="view" id="view-empresas">
+        <div class="panel"><h2>Nova empresa</h2><form id="companyForm" class="grid-form"><input name="legal_name" placeholder="Razão social" required><input name="trade_name" placeholder="Nome fantasia"><input name="cnpj" placeholder="CNPJ"><input name="internal_code" placeholder="Código interno"><select name="tax_regime"><option>Simples Nacional</option><option>Lucro Presumido</option><option>Lucro Real</option><option>MEI</option><option>Imune/Isenta</option></select><input name="activity" placeholder="Atividade"><button class="primary">Cadastrar empresa</button></form></div>
+        <div class="panel"><h2>Empresas cadastradas</h2><div id="companiesList" class="cards-list"></div></div>
+      </section>
+
+      <section class="view" id="view-obrigacoes">
+        <div class="panel"><h2>Nova obrigação</h2><form id="obligationForm" class="grid-form"><input name="name" placeholder="Nome da obrigação" required><select name="area"><option>Fiscal</option><option>Contábil</option><option>Trabalhista</option><option>Societário</option><option>Financeiro</option></select><select name="frequency"><option>Mensal</option><option>Trimestral</option><option>Anual</option><option>Eventual</option></select><input name="due_day" type="number" min="1" max="31" placeholder="Dia vencimento"><button class="primary">Cadastrar obrigação</button></form></div>
+        <div class="panel"><h2>Obrigações</h2><div id="obligationsList" class="cards-list"></div></div>
+      </section>
+
+      <section class="view" id="view-tarefas">
+        <div class="panel"><h2>Nova pendência</h2><form id="taskForm" class="grid-form"><select name="company_id" id="taskCompany"></select><select name="obligation_id" id="taskObligation"></select><input name="competence" placeholder="Competência ex: 2026-10" required><input name="title" placeholder="Título da pendência" required><input name="responsible" placeholder="Responsável"><input name="due_date" type="date"><button class="primary">Criar pendência</button></form></div>
+        <div class="panel"><h2>Pendências</h2><div id="tasksList" class="cards-list"></div></div>
+      </section>
+
+      <section class="view" id="view-cliente"><div class="panel"><h2>Área do cliente</h2><p>Estrutura reservada para cliente visualizar solicitações, enviar documentos, baixar guias e acompanhar pendências da própria empresa.</p><div class="placeholder-grid"><div>Login do cliente</div><div>Solicitações</div><div>Documentos</div><div>Guias</div></div></div></section>
+      <section class="view" id="view-relatorios"><div class="panel"><h2>Relatórios</h2><p>Resumo por empresa, pendências abertas, concluídas e sem responsabilidade anterior.</p><div id="reportBox"></div></div></section>
+      <section class="view" id="view-creditos"><div class="panel"><h2>Comprar créditos</h2><p>Créditos válidos por 30 dias após confirmação do Mercado Pago.</p><form id="creditForm" class="inline-form"><input name="amount" type="number" min="1" step="0.01" placeholder="Valor em R$" required><button class="primary">Gerar pagamento</button></form><p id="creditMessage" class="form-message"></p></div></section>
+    </main>
+
+    <aside class="right-actions" aria-label="Ações rápidas">
+      <button title="Revalidar" id="quickRefresh">↻<span>Revalidar</span></button>
+      <button title="Nova empresa" data-view-shortcut="empresas">+<span>Empresa</span></button>
+      <button title="Nova obrigação" data-view-shortcut="obrigacoes">✓<span>Obrigação</span></button>
+      <button title="Créditos" data-view-shortcut="creditos">$<span>Créditos</span></button>
+      <button title="Relatório" data-view-shortcut="relatorios">R<span>Relatório</span></button>
+    </aside>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
