@@ -1,22 +1,7 @@
-# Controle de Empresa Online — HTML v8 completo
+# Controle de Empresa
 
-Esta pasta usa o HTML v8 completo como `index.html`, para manter o visual e as telas do sistema anterior.
+HTML enviado pelo proprietário, preservado integralmente em index.html. Servidor Node sem dependências: npm start. Build: npm run build.
 
-## Render
+Login, permissões e armazenamento são locais ao navegador, conforme o HTML original; esta publicação não implementa autenticação no servidor nem sincronização de dados. Use exportação de backup do aplicativo. /login e /app redirecionam para a página única.
 
-Build Command:
-
-```bash
-npm install && npm run build
-```
-
-Publish Directory:
-
-```txt
-dist
-```
-
-## Observação
-
-Esta é a Opção 1: manter o HTML completo como base visual no Render.
-Depois os módulos podem ser migrados com calma para React/Supabase.
+Versão anterior: branch backup/antes-html-padrao-2026-10-08, commit 0bad2d451a3765ccdc488ab273b165fa797a97a9. Não foram removidos bancos ou recursos externos.

@@ -1895,344 +1895,7 @@ body.login-modal-open{overflow:hidden}
   .doc-preview-frame,.doc-image-wrap,.doc-text-preview{height:55vh}
 }
 
-
-/* ============================================================
-   LOGIN ONLINE SUPABASE
-   ============================================================ */
-.login-online-note{
-  margin-top:10px;
-  padding:10px 12px;
-  border-radius:14px;
-  background:#eef6ff;
-  border:1px solid #cfe4ff;
-  color:#344054;
-  font-size:12px;
-  line-height:1.45;
-}
-.login-online-note strong{color:#111318}
-.online-auth-pill{
-  display:inline-flex;
-  align-items:center;
-  gap:6px;
-  padding:5px 9px;
-  border-radius:999px;
-  background:#ecfdf3;
-  color:#166534;
-  font-size:10px;
-  font-weight:900;
-  text-transform:uppercase;
-  letter-spacing:.08em;
-}
-
-
-/* ============================================================
-   EMPRESAS ONLINE SUPABASE
-   ============================================================ */
-.online-sync-note{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:12px;
-  padding:12px 14px;
-  margin:0 0 14px;
-  border-radius:16px;
-  background:#eef6ff;
-  border:1px solid #cfe4ff;
-  color:#344054;
-  font-size:12px;
-}
-.online-sync-note strong{color:#111318}
-.online-sync-pill{
-  display:inline-flex;
-  align-items:center;
-  gap:6px;
-  padding:5px 9px;
-  border-radius:999px;
-  background:#ecfdf3;
-  color:#166534;
-  font-size:10px;
-  font-weight:900;
-  letter-spacing:.08em;
-  text-transform:uppercase;
-}
-
 </style>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script>
-// ============================================================
-// EMPRESAS ONLINE — SUPABASE
-// ============================================================
-let ONLINE_SESSION = null;
-let EMPRESAS_ONLINE_CARREGADAS = false;
-
-function uuidValido(v){
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(v||""));
-}
-
-function empresaOnlineToLocal(r){
-  return {
-    id: r.id,
-    onlineId: r.id,
-    organizacaoId: r.organizacao_id || "",
-    clienteId: r.cliente_id || "",
-    nome: r.razao_social || r.nome || r.nome_fantasia || "Empresa sem razão social",
-    fantasia: r.nome_fantasia || r.razao_social || "Empresa",
-    controleInterno: r.codigo_interno || "",
-    cnpj: r.cnpj || "",
-    regime: r.regime_atual || r.regime || "",
-    atividade: r.atividade || "",
-    status: r.status || "ativa",
-    inicioCliente: r.inicio_cliente || "",
-    financeiro:{
-      bloqueado: !!r.bloqueada_pagamento,
-      motivo: r.motivo_bloqueio || "",
-      regularizarAte: ""
-    },
-    uf: r.uf || "",
-    cidade: r.cidade || "",
-    endereco: r.endereco || "",
-    cep: r.cep || "",
-    email: r.email || "",
-    telefone: r.telefone || "",
-    cnae: r.cnae || "",
-    ie: r.ie || "",
-    im: r.im || "",
-    certificado:{tipo:"",venc:""},
-    socios:[],
-    obrigacoes:[],
-    contatos:[],
-    responsaveis:{},
-    historicoRegimes:[],
-    solicitacao:{status:"Não solicitado"},
-    obs: r.observacoes || "",
-    origem:"supabase"
-  };
-}
-
-function empresaLocalToOnline(e){
-  return {
-    organizacao_id: ONLINE_SESSION?.organizacaoId || e.organizacaoId || null,
-    cliente_id: e.clienteId || null,
-    razao_social: e.nome || e.razao_social || "",
-    nome_fantasia: e.fantasia || e.nome_fantasia || e.nome || "",
-    cnpj: ceNums ? ceNums(e.cnpj || "") : (e.cnpj || ""),
-    codigo_interno: e.controleInterno || e.codigo_interno || "",
-    regime_atual: e.regime || e.regime_atual || "",
-    atividade: e.atividade || "",
-    status: e.status || "ativa",
-    inicio_cliente: e.inicioCliente || null,
-    motivo_bloqueio: e.financeiro?.motivo || e.motivo_bloqueio || null,
-    updated_at: new Date().toISOString()
-  };
-}
-
-async function carregarEmpresasSupabaseOnline(){
-  const client = getSupabaseOnlineClient();
-  if(!client){
-    notificar("Cliente Supabase não inicializado.");
-    return;
-  }
-
-  if(!ONLINE_SESSION?.organizacaoId){
-    console.warn("Sessão online sem organização:", ONLINE_SESSION);
-    notificar("Login online feito, mas a organização não foi identificada. Verifique vínculo em organizacao_membros.");
-    return;
-  }
-
-  try{
-    console.log("Carregando empresas da organização:", ONLINE_SESSION.organizacaoId);
-
-    const { data, error } = await client
-      .from("empresas")
-      .select("*")
-      .eq("organizacao_id", ONLINE_SESSION.organizacaoId)
-      .order("razao_social", { ascending:true });
-
-    if(error) throw error;
-
-    console.log("Empresas Supabase:", data);
-
-    state.empresas = (data || []).map(empresaOnlineToLocal);
-    EMPRESAS_ONLINE_CARREGADAS = true;
-    salvarEstado();
-    popularFiltros();
-    refreshAtivo();
-    if(state.ui && state.ui.viewAtual !== "empresas"){
-      // mantém a tela atual, mas atualiza a base
-    }
-    notificar(`Empresas carregadas do Supabase: ${state.empresas.length}`);
-  }catch(e){
-    console.error("Erro ao carregar empresas do Supabase:", e);
-    notificar("Erro ao carregar empresas online: " + (e.message || "verifique RLS/permissões"));
-  }
-}
-
-function abrirFormEmpresaOnline(id){
-  const e = id ? (state.empresas||[]).find(x=>x.id===id) : {
-    id:null,
-    nome:"",
-    fantasia:"",
-    cnpj:"",
-    controleInterno:"",
-    regime:"Simples Nacional",
-    atividade:"",
-    status:"ativa",
-    inicioCliente:"",
-    financeiro:{bloqueado:false,motivo:""}
-  };
-
-  if(!ONLINE_SESSION?.organizacaoId){
-    notificar("Login online sem organização vinculada. Refaça o login pelo Supabase.");
-    return;
-  }
-
-  const body = `<div class="online-sync-note">
-    <div><span class="online-sync-pill">Supabase</span> <strong>Cadastro online</strong><br>Esta empresa será gravada no banco, não apenas no navegador.</div>
-  </div>
-  <div class="form-grid">
-    <div class="form-field full">
-      <label class="form-label">Razão social</label>
-      <input class="form-input" id="on-emp-razao" value="${escapeHtml(e?.nome||"")}" placeholder="Razão social da empresa">
-    </div>
-    <div class="form-field">
-      <label class="form-label">Nome fantasia</label>
-      <input class="form-input" id="on-emp-fantasia" value="${escapeHtml(e?.fantasia||"")}" placeholder="Nome fantasia">
-    </div>
-    <div class="form-field">
-      <label class="form-label">CNPJ</label>
-      <input class="form-input" id="on-emp-cnpj" value="${escapeHtml(e?.cnpj||"")}" placeholder="00.000.000/0000-00">
-    </div>
-    <div class="form-field">
-      <label class="form-label">Código interno</label>
-      <input class="form-input" id="on-emp-codigo" value="${escapeHtml(e?.controleInterno||"")}" placeholder="Código Domínio / interno">
-    </div>
-    <div class="form-field">
-      <label class="form-label">Regime</label>
-      <select class="form-input" id="on-emp-regime">
-        ${["MEI","Simples Nacional","Lucro Presumido","Lucro Real","Imune/Isenta"].map(r=>`<option value="${r}" ${e?.regime===r?"selected":""}>${r}</option>`).join("")}
-      </select>
-    </div>
-    <div class="form-field">
-      <label class="form-label">Status</label>
-      <select class="form-input" id="on-emp-status">
-        ${["ativa","implantacao","suspensa","baixada"].map(s=>`<option value="${s}" ${e?.status===s?"selected":""}>${s}</option>`).join("")}
-      </select>
-    </div>
-    <div class="form-field">
-      <label class="form-label">Início do cliente</label>
-      <input class="form-input" id="on-emp-inicio" value="${escapeHtml(e?.inicioCliente||"")}" placeholder="MM/AAAA ou AAAA-MM-DD">
-    </div>
-    <div class="form-field full">
-      <label class="form-label">Atividade</label>
-      <textarea class="form-input" id="on-emp-atividade" rows="3" placeholder="Atividade principal / observação operacional">${escapeHtml(e?.atividade||"")}</textarea>
-    </div>
-    <div class="form-field full">
-      <label class="form-label">Motivo de bloqueio financeiro</label>
-      <input class="form-input" id="on-emp-bloqueio" value="${escapeHtml(e?.financeiro?.motivo||"")}" placeholder="Preencher apenas se houver bloqueio/pagamento pendente">
-    </div>
-  </div>`;
-
-  abrirModal(id ? "Editar empresa online" : "Nova empresa online", body, [
-    {label:"Salvar no Supabase", primary:true, onClick:()=>salvarEmpresaOnline(id)},
-    {label:"Cancelar", onClick:fecharModal}
-  ], true);
-
-  document.getElementById("on-emp-cnpj")?.addEventListener("input", ev=>{
-    if(typeof ceFmtCNPJ === "function") ev.target.value = ceFmtCNPJ(ev.target.value);
-  });
-}
-
-async function salvarEmpresaOnline(id){
-  const client = getSupabaseOnlineClient();
-  if(!client || !ONLINE_SESSION?.organizacaoId){
-    notificar("Supabase não conectado ou organização não identificada.");
-    return;
-  }
-
-  const val = sel => document.getElementById(sel)?.value || "";
-  const razao = val("on-emp-razao").trim();
-  const cnpj = val("on-emp-cnpj").trim();
-
-  if(!razao){ notificar("Informe a razão social."); return; }
-  if(!cnpj){ notificar("Informe o CNPJ."); return; }
-
-  const payload = {
-    organizacao_id: ONLINE_SESSION.organizacaoId,
-    razao_social: razao,
-    nome_fantasia: val("on-emp-fantasia").trim() || razao,
-    cnpj: typeof ceNums === "function" ? ceNums(cnpj) : cnpj.replace(/\D/g,""),
-    codigo_interno: val("on-emp-codigo").trim(),
-    regime_atual: val("on-emp-regime"),
-    atividade: val("on-emp-atividade").trim(),
-    status: val("on-emp-status") || "ativa",
-    inicio_cliente: val("on-emp-inicio").trim() || null,
-    motivo_bloqueio: val("on-emp-bloqueio").trim() || null,
-    updated_at: new Date().toISOString()
-  };
-
-  try{
-    let result;
-    if(id && uuidValido(id)){
-      result = await client
-        .from("empresas")
-        .update(payload)
-        .eq("id", id)
-        .select()
-        .single();
-    }else{
-      result = await client
-        .from("empresas")
-        .insert(payload)
-        .select()
-        .single();
-    }
-
-    if(result.error) throw result.error;
-
-    fecharModal();
-    await carregarEmpresasSupabaseOnline();
-    notificar(id ? "Empresa atualizada no Supabase." : "Empresa cadastrada no Supabase.");
-  }catch(e){
-    console.error("Erro ao salvar empresa no Supabase:", e);
-    notificar("Erro ao salvar empresa online: " + (e.message || "verifique as permissões"));
-  }
-}
-
-// substitui edição antiga por edição online quando a empresa veio do banco
-const abrirFormEmpresaLocalOriginal = typeof abrirFormEmpresa === "function" ? abrirFormEmpresa : null;
-abrirFormEmpresa = function(id){
-  if(ONLINE_SESSION?.organizacaoId) return abrirFormEmpresaOnline(id);
-  if(abrirFormEmpresaLocalOriginal) return abrirFormEmpresaLocalOriginal(id);
-};
-
-const liberarAcessoModuloBaseOnline = liberarAcessoModulo;
-liberarAcessoModulo = function(sessao, origemPortal){
-  ONLINE_SESSION = sessao || null;
-  const app = document.getElementById("app");
-  if(app) app.classList.remove("app-locked");
-  document.body.classList.add("is-authenticated");
-  PORTAL_USER = sessao && sessao.usuario ? sessao.usuario : (PORTAL_USER || "ADMIN");
-  PORTAL_ROLE = sessao && sessao.perfil ? sessao.perfil : (PORTAL_ROLE || "Administrador");
-  if(!origemPortal){
-    try{ sessionStorage.setItem(LOGIN_SESSION_KEY, JSON.stringify({...sessao, ts:Date.now()})); }catch(e){}
-    setStorageKeyForUser("online");
-  }
-  boot();
-  atualizarIdentidadeTopo();
-  if(sessao?.origem === "supabase"){
-    setTimeout(()=>carregarEmpresasSupabaseOnline(), 900);
-  }
-};
-
-
-window.debugEmpresasOnline = function(){
-  console.log("ONLINE_SESSION", ONLINE_SESSION);
-  console.log("EMPRESAS_ONLINE_CARREGADAS", EMPRESAS_ONLINE_CARREGADAS);
-  console.log("state.empresas", state.empresas);
-  return {ONLINE_SESSION, EMPRESAS_ONLINE_CARREGADAS, empresas:state.empresas};
-};
-
-</script>
 </head>
 <body>
 
@@ -2424,8 +2087,8 @@ window.debugEmpresasOnline = function(){
           </div>
         </div>
         <form class="login-card login-card-popup" id="loginForm" autocomplete="off">
-          <div class="login-logo-row"><div class="login-logo">CE</div><div><div class="login-card-title">Faça seu login aqui</div><div class="login-card-sub">Informe seu e-mail e senha para continuar</div></div></div>
-          <div class="login-field"><label class="login-label" for="loginUser">E-mail</label><input class="login-input" id="loginUser" name="usuario" autocomplete="username" placeholder="seu@email.com.br"></div>
+          <div class="login-logo-row"><div class="login-logo">CE</div><div><div class="login-card-title">Faça seu login aqui</div><div class="login-card-sub">Informe seu usuário/e-mail e senha para continuar</div></div></div>
+          <div class="login-field"><label class="login-label" for="loginUser">E-mail ou usuário</label><input class="login-input" id="loginUser" name="usuario" autocomplete="username" placeholder="email@empresa.com.br ou usuário"></div>
           <div class="login-field smart-password-field">
             <label class="login-label" for="loginPass">Senha</label>
             <div class="password-shell login-password-shell">
@@ -2438,7 +2101,7 @@ window.debugEmpresasOnline = function(){
           </div>
           <button class="login-button" type="submit">Entrar no controle</button>
           <div class="login-error" id="loginError"></div>
-          <div class="login-foot">Acesso restrito aos usuários cadastrados na plataforma.</div>
+          <div class="login-foot">Na versão online, permissões, clientes e documentos serão controlados por login real e banco de dados seguro.</div>
         </form>
       </div>
     </div>
@@ -2806,7 +2469,7 @@ window.debugEmpresasOnline = function(){
           </select>
           <button class="btn sm" id="btnBuscarCnpjEmpresa">Buscar CNPJ</button>
           <button class="btn sm" id="btnImportarCnpjsLote">Importar CNPJs</button>
-          <button class="btn primary sm" id="btnNovaEmpresa">+ Nova empresa online</button>
+          <button class="btn primary sm" id="btnNovaEmpresa">+ Nova empresa</button>
         </div>
       </div>
 
@@ -4817,7 +4480,7 @@ function bindFiltros(){
   document.getElementById("cad-filtro-regime").addEventListener("change",e=>{
     state.ui.cadFiltroRegime = e.target.value; salvarEstado(); renderCadastro();
   });
-  document.getElementById("btnNovaEmpresa").addEventListener("click",()=>window.abrirFormEmpresaOnline ? window.abrirFormEmpresaOnline(null) : abrirFormEmpresa(null));
+  document.getElementById("btnNovaEmpresa").addEventListener("click",()=>abrirFormEmpresa(null));
   document.getElementById("btnNovoUsuario")?.addEventListener("click",()=>abrirFormUsuario(null));
   document.getElementById("btnUsuariosPadrao")?.addEventListener("click", criarUsuariosPadrao);
   document.getElementById("btnUsuariosTopo")?.addEventListener("click",()=>navegarPara("usuarios"));
@@ -5360,269 +5023,6 @@ function imprimirCalendario(){
   w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Calendário de Obrigações</title><style>@page{size:A4;margin:12mm}body{font-family:'Calibri Light',Calibri,Arial,sans-serif;color:#172033;font-size:11px}h1{font-size:20px;margin:0 0 4px}p{color:#64748b}table{width:100%;border-collapse:collapse;margin-top:10px}th,td{border:1px solid #e5e7eb;padding:6px;text-align:left}th{background:#f8fafc}</style></head><body><h1>Calendário de Obrigações</h1><p>Competência ${escapeHtml(comp)} • gerado em ${new Date().toLocaleString("pt-BR")}</p><table><thead><tr><th>Prazo</th><th>Empresa</th><th>Obrigação</th><th>Status</th><th>Responsável</th></tr></thead><tbody>${rows || '<tr><td colspan="5">Nenhuma obrigação com prazo.</td></tr>'}</tbody></table><script>window.onload=()=>setTimeout(()=>window.print(),200)<\/script></body></html>`);
   w.document.close();
 }
-
-
-/* ============================================================
-   PATCH ONLINE V8 — EMPRESAS SUPABASE GLOBAL
-   ============================================================ */
-(function(){
-  const SUPA_URL = "https://qnqmmrvhqxpenhqyesbc.supabase.co";
-  const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFucW1tcnZocXhwZW5ocXllc2JjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg0NDcyMDMsImV4cCI6MjEwNDAyMzIwM30.D-p9PGuOEUBKuRo2iURkI02lJ1enuyt7v3B34YbYTyY";
-  let client = null;
-  let onlineSession = null;
-
-  function supa(){
-    if(client) return client;
-    if(!window.supabase || !window.supabase.createClient){
-      console.error("Biblioteca Supabase não carregou.");
-      return null;
-    }
-    client = window.supabase.createClient(SUPA_URL, SUPA_KEY);
-    return client;
-  }
-
-  function safeNotify(msg){
-    if(typeof window.notificar === "function") window.notificar(msg);
-    else console.log(msg);
-  }
-
-  function onlyNums(v){ return String(v||"").replace(/\D/g,""); }
-  function esc(v){
-    if(typeof window.escapeHtml === "function") return window.escapeHtml(v);
-    return String(v ?? "").replace(/[&<>"']/g, s=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[s]));
-  }
-
-  function uuidOk(v){ return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(v||"")); }
-
-  async function identificarSessaoOnline(){
-    const c = supa();
-    if(!c) return null;
-
-    const { data: userData, error: userErr } = await c.auth.getUser();
-    if(userErr || !userData?.user){
-      console.warn("Sem usuário Supabase ativo:", userErr);
-      return null;
-    }
-
-    const user = userData.user;
-    let profile = null;
-    try{
-      const { data } = await c.from("profiles").select("id,nome,email,papel").eq("id", user.id).maybeSingle();
-      profile = data || null;
-    }catch(e){ console.warn("profile:", e); }
-
-    let orgId = null, orgNome = null, papelOrg = null;
-
-    try{
-      const { data } = await c.from("organizacao_membros")
-        .select("organizacao_id,papel,ativo")
-        .eq("user_id", user.id)
-        .eq("ativo", true)
-        .limit(1)
-        .maybeSingle();
-      if(data){ orgId = data.organizacao_id; papelOrg = data.papel; }
-    }catch(e){ console.warn("membro:", e); }
-
-    if(!orgId){
-      try{
-        const { data } = await c.from("organizacoes")
-          .select("id,nome,status")
-          .eq("owner_id", user.id)
-          .limit(1)
-          .maybeSingle();
-        if(data){ orgId = data.id; orgNome = data.nome; papelOrg = "owner"; }
-      }catch(e){ console.warn("org owner:", e); }
-    }
-
-    if(!orgId){
-      try{
-        const { data } = await c.from("organizacoes")
-          .select("id,nome,status,email_cobranca")
-          .eq("email_cobranca", String(user.email||"").toLowerCase())
-          .limit(1)
-          .maybeSingle();
-        if(data){ orgId = data.id; orgNome = data.nome; papelOrg = "owner"; }
-      }catch(e){ console.warn("org email:", e); }
-    }
-
-    if(orgId && !orgNome){
-      try{
-        const { data } = await c.from("organizacoes").select("id,nome,status").eq("id", orgId).maybeSingle();
-        if(data) orgNome = data.nome;
-      }catch(e){}
-    }
-
-    onlineSession = {
-      usuario: profile?.email || user.email,
-      nome: profile?.nome || user.email,
-      email: user.email,
-      perfil: profile?.papel || papelOrg || "member",
-      role: profile?.papel === "platform_admin" ? "ADMIN" : String(papelOrg || profile?.papel || "member").toUpperCase(),
-      supabaseUserId: user.id,
-      organizacaoId: orgId,
-      organizacaoNome: orgNome,
-      origem: "supabase"
-    };
-    window.ONLINE_SESSION = onlineSession;
-    return onlineSession;
-  }
-
-  function empresaOnlineToLocal(r){
-    return {
-      id: r.id,
-      onlineId: r.id,
-      organizacaoId: r.organizacao_id || "",
-      clienteId: r.cliente_id || "",
-      nome: r.razao_social || r.nome || r.nome_fantasia || "Empresa sem razão social",
-      fantasia: r.nome_fantasia || r.razao_social || "Empresa",
-      controleInterno: r.codigo_interno || "",
-      cnpj: r.cnpj || "",
-      regime: r.regime_atual || r.regime || "",
-      atividade: r.atividade || "",
-      status: r.status || "ativa",
-      inicioCliente: r.inicio_cliente || "",
-      financeiro:{ bloqueado:false, motivo:r.motivo_bloqueio || "" },
-      contatos:[],
-      obrigacoes:[],
-      socios:[],
-      responsaveis:{},
-      historicoRegimes:[],
-      certificado:{tipo:"",venc:""},
-      solicitacao:{status:"Não solicitado"},
-      obs: r.observacoes || "",
-      origem:"supabase"
-    };
-  }
-
-  async function carregarEmpresasSupabaseOnline(){
-    const c = supa();
-    if(!c) return safeNotify("Supabase não carregou.");
-
-    const sess = onlineSession?.organizacaoId ? onlineSession : await identificarSessaoOnline();
-    if(!sess?.organizacaoId){
-      console.warn("Sessão sem organização:", sess);
-      safeNotify("Login ok, mas organização não identificada.");
-      return;
-    }
-
-    try{
-      const { data, error } = await c.from("empresas")
-        .select("*")
-        .eq("organizacao_id", sess.organizacaoId)
-        .order("razao_social", { ascending:true });
-      if(error) throw error;
-
-      window.state.empresas = (data || []).map(empresaOnlineToLocal);
-      if(typeof window.salvarEstado === "function") window.salvarEstado();
-      if(typeof window.popularFiltros === "function") window.popularFiltros();
-      if(typeof window.renderCadastro === "function") window.renderCadastro();
-      if(typeof window.refreshAtivo === "function") window.refreshAtivo();
-      safeNotify("Empresas carregadas online: " + window.state.empresas.length);
-      console.log("Empresas online carregadas:", data);
-    }catch(e){
-      console.error("Erro empresas Supabase:", e);
-      safeNotify("Erro ao carregar empresas online: " + (e.message || "verifique permissões"));
-    }
-  }
-
-  async function salvarEmpresaSupabaseOnline(id){
-    const c = supa();
-    const sess = onlineSession?.organizacaoId ? onlineSession : await identificarSessaoOnline();
-    if(!c || !sess?.organizacaoId) return safeNotify("Supabase ou organização não conectado.");
-
-    const val = id => document.getElementById(id)?.value || "";
-    const razao = val("on-emp-razao").trim();
-    const cnpj = val("on-emp-cnpj").trim();
-    if(!razao) return safeNotify("Informe a razão social.");
-    if(!cnpj) return safeNotify("Informe o CNPJ.");
-
-    const payload = {
-      organizacao_id: sess.organizacaoId,
-      razao_social: razao,
-      nome_fantasia: val("on-emp-fantasia").trim() || razao,
-      cnpj: onlyNums(cnpj),
-      codigo_interno: val("on-emp-codigo").trim(),
-      regime_atual: val("on-emp-regime"),
-      atividade: val("on-emp-atividade").trim(),
-      status: val("on-emp-status") || "ativa",
-      inicio_cliente: val("on-emp-inicio").trim() || null,
-      motivo_bloqueio: val("on-emp-bloqueio").trim() || null,
-      updated_at: new Date().toISOString()
-    };
-
-    try{
-      let res;
-      if(id && uuidOk(id)){
-        res = await c.from("empresas").update(payload).eq("id", id).select().single();
-      }else{
-        res = await c.from("empresas").insert(payload).select().single();
-      }
-      if(res.error) throw res.error;
-
-      if(typeof window.fecharModal === "function") window.fecharModal();
-      await carregarEmpresasSupabaseOnline();
-      safeNotify(id ? "Empresa atualizada online." : "Empresa cadastrada online.");
-    }catch(e){
-      console.error("Erro salvar empresa:", e);
-      safeNotify("Erro ao salvar empresa: " + (e.message || "verifique permissões"));
-    }
-  }
-
-  function abrirFormEmpresaOnline(id){
-    const e = id ? (window.state.empresas||[]).find(x=>x.id===id) : {};
-    const body = `<div class="online-sync-note">
-      <div><span class="online-sync-pill">Supabase</span> <strong>Cadastro online</strong><br>Esta empresa será gravada no banco.</div>
-    </div>
-    <div class="form-grid">
-      <div class="form-field full"><label class="form-label">Razão social</label><input class="form-input" id="on-emp-razao" value="${esc(e.nome||"")}" placeholder="Razão social da empresa"></div>
-      <div class="form-field"><label class="form-label">Nome fantasia</label><input class="form-input" id="on-emp-fantasia" value="${esc(e.fantasia||"")}" placeholder="Nome fantasia"></div>
-      <div class="form-field"><label class="form-label">CNPJ</label><input class="form-input" id="on-emp-cnpj" value="${esc(e.cnpj||"")}" placeholder="00.000.000/0000-00"></div>
-      <div class="form-field"><label class="form-label">Código interno</label><input class="form-input" id="on-emp-codigo" value="${esc(e.controleInterno||"")}" placeholder="Código interno"></div>
-      <div class="form-field"><label class="form-label">Regime</label><select class="form-input" id="on-emp-regime">${["MEI","Simples Nacional","Lucro Presumido","Lucro Real","Imune/Isenta"].map(r=>`<option value="${r}" ${e.regime===r?"selected":""}>${r}</option>`).join("")}</select></div>
-      <div class="form-field"><label class="form-label">Status</label><select class="form-input" id="on-emp-status">${["ativa","implantacao","suspensa","baixada"].map(s=>`<option value="${s}" ${e.status===s?"selected":""}>${s}</option>`).join("")}</select></div>
-      <div class="form-field"><label class="form-label">Início do cliente</label><input class="form-input" id="on-emp-inicio" value="${esc(e.inicioCliente||"")}" placeholder="AAAA-MM-DD"></div>
-      <div class="form-field full"><label class="form-label">Atividade</label><textarea class="form-input" id="on-emp-atividade" rows="3">${esc(e.atividade||"")}</textarea></div>
-      <div class="form-field full"><label class="form-label">Motivo de bloqueio</label><input class="form-input" id="on-emp-bloqueio" value="${esc(e.financeiro?.motivo||"")}"></div>
-    </div>`;
-    if(typeof window.abrirModal !== "function") return alert("Modal não carregado.");
-    window.abrirModal(id ? "Editar empresa online" : "Nova empresa online", body, [
-      {label:"Salvar no Supabase", primary:true, onClick:()=>salvarEmpresaSupabaseOnline(id)},
-      {label:"Cancelar", onClick:window.fecharModal}
-    ], true);
-  }
-
-  window.carregarEmpresasSupabaseOnline = carregarEmpresasSupabaseOnline;
-  window.abrirFormEmpresaOnline = abrirFormEmpresaOnline;
-  window.debugEmpresasOnline = function(){
-    console.log("onlineSession", onlineSession || window.ONLINE_SESSION);
-    console.log("state.empresas", window.state?.empresas);
-    return { onlineSession: onlineSession || window.ONLINE_SESSION, empresas: window.state?.empresas };
-  };
-
-  document.addEventListener("click", function(ev){
-    const nova = ev.target.closest("#btnNovaEmpresa");
-    if(nova){
-      ev.preventDefault();
-      ev.stopPropagation();
-      abrirFormEmpresaOnline(null);
-    }
-
-    const rec = ev.target.closest("#btnRecarregarEmpresasOnline,[data-recarregar-empresas-online]");
-    if(rec){
-      ev.preventDefault();
-      ev.stopPropagation();
-      carregarEmpresasSupabaseOnline();
-    }
-  }, true);
-
-  window.addEventListener("load", function(){
-    setTimeout(async ()=>{
-      await identificarSessaoOnline();
-      if(onlineSession?.organizacaoId) carregarEmpresasSupabaseOnline();
-    }, 1200);
-  });
-})();
-
 function renderKpi(k){
   const f = k.filter || null;
   const filterAttrs = f ? ` data-kpi-view="${escapeHtml(f.view||"")}" data-kpi-filter="${escapeHtml(f.type||"")}" data-kpi-value="${escapeHtml(f.value||"")}"` : "";
@@ -8777,175 +8177,6 @@ function initPasswordDesign(){
   document.querySelectorAll('.smart-password-input').forEach(atualizarDesignSenha);
 }
 
-
-// ============================================================
-// AUTENTICAÇÃO ONLINE — SUPABASE
-// ============================================================
-const SUPABASE_URL_ONLINE = "https://qnqmmrvhqxpenhqyesbc.supabase.co";
-const SUPABASE_ANON_KEY_ONLINE = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFucW1tcnZocXhwZW5ocXllc2JjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg0NDcyMDMsImV4cCI6MjEwNDAyMzIwM30.D-p9PGuOEUBKuRo2iURkI02lJ1enuyt7v3B34YbYTyY";
-let supabaseOnlineClient = null;
-
-function getSupabaseOnlineClient(){
-  try{
-    if(supabaseOnlineClient) return supabaseOnlineClient;
-    if(!window.supabase || !window.supabase.createClient) return null;
-    supabaseOnlineClient = window.supabase.createClient(SUPABASE_URL_ONLINE, SUPABASE_ANON_KEY_ONLINE);
-    return supabaseOnlineClient;
-  }catch(e){
-    console.warn("Supabase indisponível:", e);
-    return null;
-  }
-}
-
-async function autenticarLoginSupabase(usuario, senha){
-  const email = String(usuario || "").trim().toLowerCase();
-  const pass = String(senha || "");
-  if(!email || !pass || !email.includes("@")) return null;
-
-  const client = getSupabaseOnlineClient();
-  if(!client) return null;
-
-  const { data, error } = await client.auth.signInWithPassword({
-    email,
-    password: pass
-  });
-
-  if(error || !data || !data.user){
-    console.warn("Falha login Supabase:", error);
-    return null;
-  }
-
-  let profile = null;
-  try{
-    const { data: prof, error: profErr } = await client
-      .from("profiles")
-      .select("id,nome,email,papel")
-      .eq("id", data.user.id)
-      .maybeSingle();
-    if(profErr) console.warn("Erro profile:", profErr);
-    profile = prof || null;
-  }catch(e){
-    console.warn("Perfil não localizado:", e);
-  }
-
-  let organizacaoId = null;
-  let organizacaoNome = null;
-  let papelOrg = null;
-  let assinaturaStatus = null;
-
-  // 1ª tentativa: vínculo direto como membro
-  try{
-    const { data: membro, error: membroErr } = await client
-      .from("organizacao_membros")
-      .select("organizacao_id,papel,ativo")
-      .eq("user_id", data.user.id)
-      .eq("ativo", true)
-      .limit(1)
-      .maybeSingle();
-
-    if(membroErr) console.warn("Erro membro:", membroErr);
-    if(membro){
-      organizacaoId = membro.organizacao_id;
-      papelOrg = membro.papel;
-    }
-  }catch(e){
-    console.warn("Organização por membro não localizada:", e);
-  }
-
-  // 2ª tentativa: organização em que o usuário é owner
-  if(!organizacaoId){
-    try{
-      const { data: orgOwner, error: orgOwnerErr } = await client
-        .from("organizacoes")
-        .select("id,nome,status")
-        .eq("owner_id", data.user.id)
-        .limit(1)
-        .maybeSingle();
-
-      if(orgOwnerErr) console.warn("Erro org owner:", orgOwnerErr);
-      if(orgOwner){
-        organizacaoId = orgOwner.id;
-        organizacaoNome = orgOwner.nome;
-        papelOrg = papelOrg || "owner";
-      }
-    }catch(e){
-      console.warn("Organização por owner não localizada:", e);
-    }
-  }
-
-  // 3ª tentativa: platform_admin pelo e-mail de cobrança
-  if(!organizacaoId){
-    try{
-      const { data: orgEmail, error: orgEmailErr } = await client
-        .from("organizacoes")
-        .select("id,nome,status,email_cobranca")
-        .eq("email_cobranca", email)
-        .limit(1)
-        .maybeSingle();
-
-      if(orgEmailErr) console.warn("Erro org email:", orgEmailErr);
-      if(orgEmail){
-        organizacaoId = orgEmail.id;
-        organizacaoNome = orgEmail.nome;
-        papelOrg = papelOrg || "owner";
-      }
-    }catch(e){
-      console.warn("Organização por e-mail não localizada:", e);
-    }
-  }
-
-  // Buscar nome/status da organização se ainda faltou
-  if(organizacaoId && !organizacaoNome){
-    try{
-      const { data: org } = await client
-        .from("organizacoes")
-        .select("id,nome,status")
-        .eq("id", organizacaoId)
-        .maybeSingle();
-      if(org) organizacaoNome = org.nome;
-    }catch(e){}
-  }
-
-  // Buscar assinatura separada, sem join complexo
-  if(organizacaoId){
-    try{
-      const { data: ass, error: assErr } = await client
-        .from("assinaturas")
-        .select("status,plano,limite_usuarios,valor_base")
-        .eq("organizacao_id", organizacaoId)
-        .maybeSingle();
-      if(assErr) console.warn("Erro assinatura:", assErr);
-      assinaturaStatus = ass?.status || null;
-    }catch(e){
-      console.warn("Assinatura não localizada:", e);
-    }
-  }
-
-  if(assinaturaStatus && !["ativa","teste"].includes(String(assinaturaStatus || "").toLowerCase())){
-    notificar("Acesso interrompido: assinatura não está ativa.");
-    return null;
-  }
-
-  return {
-    usuario: (profile?.email || data.user.email || email),
-    nome: (profile?.nome || data.user.email || email),
-    email: data.user.email || email,
-    role: profile?.papel === "platform_admin" ? "ADMIN" : (papelOrg || profile?.papel || "member").toUpperCase(),
-    perfil: profile?.papel || papelOrg || "member",
-    supabaseUserId: data.user.id,
-    organizacaoId: organizacaoId,
-    organizacaoNome: organizacaoNome,
-    origem: "supabase"
-  };
-}
-
-async function logoutSupabaseOnline(){
-  try{
-    const client = getSupabaseOnlineClient();
-    if(client) await client.auth.signOut();
-  }catch(e){}
-}
-
 const LOGIN_SESSION_KEY = "controle_empresa_session_v1";
 const AUTH_USERS_KEY = "controle_empresa_auth_users_v1";
 const ADMIN_HASH_SHA256 = "sha256:639405bc786621f9402bf115fee450dbb74b96a486d294a48cfda90a6ffb5743";
@@ -8997,9 +8228,18 @@ function sincronizarUsuariosDeAcesso(){
   }catch(e){}
 }
 async function autenticarLoginLocal(usuario, senha){
-  const onlineSess = await autenticarLoginSupabase(usuario, senha);
-  if(onlineSess) return onlineSess;
-  return null;
+  const loginInformado = String(usuario||"").trim();
+  const user = normalizarLoginUsuario(loginInformado);
+  const email = loginInformado.toLowerCase();
+  if(!loginInformado || !senha) return null;
+  if(user === "ADMIN" || email === "admin"){
+    const ok = await senhaConfere(senha, ADMIN_HASH_SHA256, ADMIN_HASH_FALLBACK);
+    return ok ? {usuario:"ADMIN", nome:"Administrador", perfil:"Administrador"} : null;
+  }
+  const u = lerUsuariosDeAcesso().find(x=>(normalizarLoginUsuario(x.usuario) === user || String(x.email||"").trim().toLowerCase() === email) && x.ativo !== false);
+  if(!u) return null;
+  const ok = await senhaConfere(senha, u.passwordHash, u.passwordFallback);
+  return ok ? {usuario:u.usuario, nome:u.nome||u.usuario, perfil:u.perfil||"Operacional"} : null;
 }
 function liberarAcessoModulo(sessao, origemPortal){
   const app = document.getElementById("app");
@@ -9026,8 +8266,7 @@ function atualizarIdentidadeTopo(){
   if(btn) btn.title = PORTAL_USER ? "Sair de " + PORTAL_USER : "Sair do sistema";
 }
 function sairDoSistema(){
-  try{ logoutSupabaseOnline();
-    sessionStorage.removeItem(LOGIN_SESSION_KEY); }catch(e){}
+  try{ sessionStorage.removeItem(LOGIN_SESSION_KEY); }catch(e){}
   location.reload();
 }
 
@@ -9097,7 +8336,7 @@ function initLoginLocal(){
     const senha = document.getElementById("loginPass")?.value || "";
     const sess = await autenticarLoginLocal(usuario, senha);
     if(!sess){
-      if(erro) erro.textContent = "E-mail ou senha inválidos.";
+      if(erro) erro.textContent = "Usuário ou senha inválidos.";
       const pass = document.getElementById("loginPass");
       if(pass){ pass.value = ""; pass.focus(); }
       return;
