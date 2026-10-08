@@ -13,6 +13,7 @@ const COOKIE_NAME = 'ce_session';
 const USER_HASH = '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918';
 const PASS_HASH = '639405bc786621f9402bf115fee450dbb74b96a486d294a48cfda90a6ffb5743';
 const SESSION_SECRET = process.env.SESSION_SECRET || 'controle-empresa-stable-session';
+const LOGIN_URL = '/login';
 
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json({ limit: '2mb' }));
@@ -20,13 +21,16 @@ app.use(express.json({ limit: '2mb' }));
 function sha256(value) {
   return crypto.createHash('sha256').update(String(value || '').trim()).digest('hex');
 }
+
 function sign(value) {
   return crypto.createHmac('sha256', SESSION_SECRET).update(value).digest('hex');
 }
+
 function createSession() {
   const payload = `admin:${Date.now()}`;
   return `${Buffer.from(payload).toString('base64url')}.${sign(payload)}`;
 }
+
 function readCookies(req) {
   return Object.fromEntries(String(req.headers.cookie || '')
     .split(';')
@@ -37,6 +41,7 @@ function readCookies(req) {
       return i >= 0 ? [v.slice(0, i), decodeURIComponent(v.slice(i + 1))] : [v, ''];
     }));
 }
+
 function isAuthed(req) {
   const token = readCookies(req)[COOKIE_NAME];
   if (!token || !token.includes('.')) return false;
@@ -48,16 +53,20 @@ function isAuthed(req) {
     return false;
   }
 }
+
 function setSessionCookie(res) {
   res.setHeader('Set-Cookie', `${COOKIE_NAME}=${encodeURIComponent(createSession())}; Path=/; HttpOnly; SameSite=Lax; Max-Age=28800`);
 }
+
 function clearSessionCookie(res) {
   res.setHeader('Set-Cookie', `${COOKIE_NAME}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`);
 }
+
 function requireAuth(req, res, next) {
   if (isAuthed(req)) return next();
-  return res.redirect('/login');
+  return res.redirect(LOGIN_URL);
 }
+
 function readIndexHtml() {
   return fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8');
 }
@@ -107,6 +116,27 @@ const emitLeveScript = `
 })();
 </script>`;
 
+const landingLoginHeadPatch = `
+<script id="ceEarlyLoginRoutePatch">
+(function(){
+  function isLoginTrigger(el){
+    if(!el) return false;
+    var text=String(el.textContent||el.value||el.getAttribute('aria-label')||'').toLowerCase();
+    var id=String(el.id||'').toLowerCase();
+    var cls=String(el.className||'').toLowerCase();
+    return text.includes('faça seu login aqui') || text.includes('faca seu login aqui') || text.includes('login') || text.includes('entrar') || text.includes('acessar') || id.includes('login') || cls.includes('login');
+  }
+  function go(ev){
+    if(ev){ev.preventDefault();ev.stopPropagation();if(ev.stopImmediatePropagation)ev.stopImmediatePropagation();}
+    window.location.href='/login';
+  }
+  document.addEventListener('click',function(ev){
+    var el=ev.target && ev.target.closest ? ev.target.closest('a,button,[role="button"],input[type="button"],input[type="submit"]') : null;
+    if(isLoginTrigger(el)) go(ev);
+  },true);
+})();
+</script>`;
+
 const publicLoginButton = `
 <style id="cePublicLoginButtonStyle">
 .ce-public-login-fixed{position:fixed;right:22px;top:18px;z-index:999999;display:inline-flex;align-items:center;gap:10px;height:42px;padding:0 18px;border-radius:999px;background:linear-gradient(135deg,#b42318,#8f1b13);color:#fff!important;text-decoration:none!important;font:800 13px/1 'Segoe UI',Arial,sans-serif;box-shadow:0 16px 40px rgba(0,0,0,.28);border:1px solid rgba(255,255,255,.18)}.ce-public-login-fixed:hover{filter:brightness(.96);transform:translateY(-1px)}@media(max-width:720px){.ce-public-login-fixed{right:12px;top:12px;height:38px;padding:0 14px;font-size:12px}}
@@ -114,27 +144,21 @@ const publicLoginButton = `
 <a class="ce-public-login-fixed" href="/login" data-ce-login-fixed="1">Entrar no sistema</a>
 <script id="cePublicLandingPatch">
 (function(){
-  function goLogin(ev){ if(ev){ ev.preventDefault(); ev.stopPropagation(); } window.location.assign('/login'); }
-  function isLoginTrigger(el){
-    if(!el) return false;
-    var text=String(el.textContent||el.value||el.getAttribute('aria-label')||'').toLowerCase();
-    var id=String(el.id||'').toLowerCase();
-    var cls=String(el.className||'').toLowerCase();
-    return text.includes('login') || text.includes('entrar') || text.includes('acessar') || id.includes('login') || cls.includes('login');
-  }
-  document.addEventListener('DOMContentLoaded',function(){
+  function forceLoginLinks(){
     document.querySelectorAll('a,button,[role="button"],input[type="button"],input[type="submit"]').forEach(function(el){
-      if(el.getAttribute('data-ce-login-fixed')) return;
-      if(isLoginTrigger(el)){
+      var text=String(el.textContent||el.value||el.getAttribute('aria-label')||'').toLowerCase();
+      var id=String(el.id||'').toLowerCase();
+      var cls=String(el.className||'').toLowerCase();
+      var login=text.includes('faça seu login aqui')||text.includes('faca seu login aqui')||text.includes('login')||text.includes('entrar')||text.includes('acessar')||id.includes('login')||cls.includes('login');
+      if(login){
         if(el.tagName==='A') el.setAttribute('href','/login');
-        el.addEventListener('click', goLogin, true);
+        el.setAttribute('data-ce-forced-login','1');
       }
     });
-    document.addEventListener('click',function(ev){
-      var el=ev.target.closest && ev.target.closest('a,button,[role="button"],input[type="button"],input[type="submit"]');
-      if(el && !el.getAttribute('data-ce-login-fixed') && isLoginTrigger(el)) goLogin(ev);
-    },true);
-  });
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',forceLoginLinks); else forceLoginLinks();
+  setTimeout(forceLoginLinks,300);
+  setTimeout(forceLoginLinks,1000);
 })();
 </script>`;
 
@@ -153,22 +177,33 @@ const appUnlockScript = `
     if(app){app.style.display='grid';app.style.visibility='visible';app.style.opacity='1';}
     try{localStorage.setItem('ce_force_auth','1');localStorage.setItem('ce_session','server-authenticated');}catch(e){}
   }
-  document.addEventListener('DOMContentLoaded',unlock);
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',unlock); else unlock();
   setTimeout(unlock,100);
   setTimeout(unlock,500);
 })();
 </script>`;
+
+function forceServerSideLoginButton(html) {
+  let out = html;
+  out = out.replace(/<a([^>]*)>([\s\S]*?Faça seu login aqui[\s\S]*?)<\/a>/gi, '<a$1 href="/login" data-ce-forced-login="1">$2</a>');
+  out = out.replace(/<button([^>]*)>([\s\S]*?Faça seu login aqui[\s\S]*?)<\/button>/gi, '<a class="landing-login-link" href="/login" data-ce-forced-login="1">$2</a>');
+  return out;
+}
 
 function injectEmitLeve(html) {
   if (!html.includes('ceEmitLeveStyle')) html = html.replace('</head>', `${emitLeveStyle}\n</head>`);
   if (!html.includes('ceEmitLeveScript')) html = html.replace('</body>', `${emitLeveHtml}\n${emitLeveScript}\n</body>`);
   return html;
 }
+
 function renderPublicLanding() {
   let html = readIndexHtml();
+  html = forceServerSideLoginButton(html);
+  if (!html.includes('ceEarlyLoginRoutePatch')) html = html.replace('<head>', `<head>\n${landingLoginHeadPatch}`);
   if (!html.includes('cePublicLandingPatch')) html = html.replace('</body>', `${publicLoginButton}\n</body>`);
   return html;
 }
+
 function renderAppHtml() {
   let html = readIndexHtml();
   if (!html.includes('ceAppUnlockStyle')) html = html.replace('</head>', `${appUnlockStyle}\n</head>`);
@@ -176,7 +211,7 @@ function renderAppHtml() {
   return injectEmitLeve(html);
 }
 
-app.get('/api/health', (_req, res) => res.json({ ok: true, mode: 'public-landing-fixed-login-button', timestamp: new Date().toISOString() }));
+app.get('/api/health', (_req, res) => res.json({ ok: true, mode: 'public-landing-stable-login', timestamp: new Date().toISOString() }));
 app.get(['/', '/demo'], (_req, res) => res.type('html').send(renderPublicLanding()));
 app.get('/login', (req, res) => {
   if (isAuthed(req)) return res.redirect('/app');
@@ -194,8 +229,7 @@ app.get('/logout', (_req, res) => {
   res.redirect('/login');
 });
 app.get(['/app', '/app.html'], requireAuth, (_req, res) => res.type('html').send(renderAppHtml()));
-
 app.use(express.static(path.join(__dirname, 'public')));
-app.get('*', (_req, res) => res.redirect('/'));
+app.get('*', (_req, res) => res.type('html').send(renderPublicLanding()));
 
-app.listen(PORT, () => console.log(`Controle de Empresa rodando na porta ${PORT} - landing publica com login fixo`));
+app.listen(PORT, () => console.log(`Controle de Empresa rodando na porta ${PORT} - landing publica e login estavel`));
