@@ -3426,8 +3426,8 @@ function criarChecklistBaseEmpresa(emp, comp){
 }
 function deixarChecklistEmBranco(emp, comp){
   const key = checklistKey(emp.id, comp);
-  state.checklist[key] = criarChecklistBaseEmpresa(emp, comp);
-  sincronizarChecklistObrigacoes(emp, comp);
+  if(Array.isArray(state.checklist[key])) return state.checklist[key];
+  sincronizarChecklistObrigacoes(emp, comp, true);
   (state.checklist[key] || []).forEach(it=>{
     it.status = "pendente";
     it.atualizadoEm = "";
@@ -3436,25 +3436,6 @@ function deixarChecklistEmBranco(emp, comp){
     }
   });
   return state.checklist[key];
-}
-function reiniciarCompetenciasFuturasEmBranco(){
-  if(!state || !state.checklist || typeof state.checklist !== "object") return;
-  const compRef = competenciaDoMesAtual();
-  const empresasPorId = new Map((state.empresas||[]).map(e=>[e.id,e]));
-  Object.keys(state.checklist).forEach(key=>{
-    const partes = key.split("::");
-    if(partes.length < 2) return;
-    const empId = partes[0];
-    const comp = normalizarCompetenciaEntrada(partes.slice(1).join("::"));
-    if(!comp || compararCompetencia(comp, compRef) <= 0) return;
-    const emp = empresasPorId.get(empId);
-    if(!emp) return;
-    if(!empresaResponsavelNaCompetencia(emp, comp)){
-      delete state.checklist[key];
-      return;
-    }
-    deixarChecklistEmBranco(emp, comp);
-  });
 }
 function checklistKey(empId, comp){
   return `${empId}::${comp || competenciaAtual()}`;
@@ -3470,16 +3451,13 @@ function obrigacoesAplicaveisEmpresa(emp, comp){
   // As sugestões por regime ficam disponíveis apenas para o usuário montar seus próprios grupos.
   return [];
 }
-function sincronizarChecklistObrigacoes(emp, comp){
+function sincronizarChecklistObrigacoes(emp, comp, criar = false){
   normalizarInicioCliente(emp);
   if(!empresaResponsavelNaCompetencia(emp, comp || competenciaAtual())) return [];
   const key = checklistKey(emp.id, comp);
-  let itens = Array.isArray(state.checklist[key]) ? state.checklist[key] : [];
+  if(Array.isArray(state.checklist[key]) && !criar) return state.checklist[key];
+  let itens = [];
   const aplicaveis = obrigacoesAplicaveisEmpresa(emp, comp || competenciaAtual());
-  const aplicSet = new Set(aplicaveis.map(slugObrigacao));
-  // Remove obrigações fixas antigas para que nada apareça por padrão.
-  itens = itens.filter(it=>!ETAPAS_FIXAS_ANTIGAS.has(String(it.etapaId||"")));
-  itens = itens.filter(it=>!String(it.etapaId||"").startsWith("obrig::") || aplicSet.has(String(it.etapaId||"").replace("obrig::", "")));
   const existentes = new Set(itens.map(it=>it.etapaId));
   aplicaveis.forEach(nome=>{
     const etapaId = "obrig::" + slugObrigacao(nome);
@@ -3510,7 +3488,7 @@ function getChecklistEmpresa(empId, comp){
   if(!Array.isArray(state.checklist[key])){
     // Cada competência começa independente e em branco.
     // O fechamento de um mês não carrega etapas concluídas para o mês seguinte.
-    state.checklist[key] = criarChecklistBaseEmpresa(emp, comp);
+    return sincronizarChecklistObrigacoes(emp, comp, true);
   }
   return sincronizarChecklistObrigacoes(emp, comp);
 }
@@ -4169,44 +4147,40 @@ const state = {
   }
 };
 
+const CAMPOS_LISTA_BACKUP = ["empresas","usuarios","competencias","obrigacoesExtras","gruposObrigacoes","solicitacoesExclusao","auditoria","modelosEmail","linksRapidos","documentos","chamadosInternos","clientesPortal","baseAnalista"];
+const CAMPOS_OBJETO_BACKUP = ["fatorR","checklist","filtros","ui"];
+const PADROES_FILTROS = JSON.parse(JSON.stringify(state.filtros));
+const PADROES_UI = JSON.parse(JSON.stringify(state.ui));
+let falhaLeituraEstado = false;
+function snapshotEstado(){
+  const dados = {};
+  [...CAMPOS_LISTA_BACKUP, ...CAMPOS_OBJETO_BACKUP].forEach(k=>{ dados[k] = state[k]; });
+  return dados;
+}
 function salvarEstado(){
   try{
+    if(falhaLeituraEstado) throw new Error("Dados locais não puderam ser lidos. Restaure um backup antes de salvar.");
     recalcularPendencias();
     sincronizarDivergencias();
-    const snapshot = {
-      empresas: state.empresas,
-      usuarios: state.usuarios,
-      competencias: state.competencias,
-      obrigacoesExtras: state.obrigacoesExtras,
-      gruposObrigacoes: state.gruposObrigacoes,
-      solicitacoesExclusao: state.solicitacoesExclusao,
-      auditoria: state.auditoria,
-      modelosEmail: state.modelosEmail,
-      linksRapidos: state.linksRapidos,
-      documentos: state.documentos,
-      chamadosInternos: state.chamadosInternos,
-      clientesPortal: state.clientesPortal,
-      fatorR: state.fatorR,
-      baseAnalista: state.baseAnalista,
-      checklist: state.checklist,
-      filtros: state.filtros,
-      ui: state.ui
-    };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
-    sincronizarUsuariosDeAcesso();
-    notifyPortalDirty();
-  }catch(e){console.warn("Falha salvar:",e)}
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshotEstado()));
+  }catch(e){
+    notificar("Não foi possível salvar. Mantenha esta página aberta e exporte um backup. " + e.message);
+    throw e;
+  }
+  sincronizarUsuariosDeAcesso();
+  notifyPortalDirty();
+  return true;
 }
 
 function carregarEstado(){
-  let houveLimpezaSeed = false;
+  falhaLeituraEstado = false;
   try{
     let raw = localStorage.getItem(STORAGE_KEY);
     if(!raw && STORAGE_KEY_ANTIGA) raw = localStorage.getItem(STORAGE_KEY_ANTIGA);
     if(!raw){
       state.empresas = [];
     } else {
-      const s = JSON.parse(raw);
+      const s = validarDadosBackup(JSON.parse(raw));
       state.empresas = Array.isArray(s.empresas) ? s.empresas : [];
       state.usuarios = Array.isArray(s.usuarios) ? s.usuarios : [];
       if(Array.isArray(s.competencias)) state.competencias = s.competencias;
@@ -4226,13 +4200,10 @@ function carregarEstado(){
       if(s.ui) Object.assign(state.ui, s.ui);
     }
   }catch(e){
-    console.warn("Falha carregar:",e);
-    state.empresas = [];
+    falhaLeituraEstado = true;
+    notificar("Não foi possível ler os dados locais. Eles foram preservados; não serão sobrescritos.");
+    throw e;
   }
-
-  const antes = state.empresas.length;
-  state.empresas = (state.empresas || []).filter(emp=>!LEGACY_SEED_CNPJS.includes(ceNums(emp && emp.cnpj)));
-  houveLimpezaSeed = antes !== state.empresas.length;
 
   normalizarUsuarios();
   normalizarGruposObrigacoes();
@@ -4243,27 +4214,9 @@ function carregarEstado(){
   normalizarModelosEmail();
   ensureExtrasState();
 
-  // Remove checklist órfão de empresas padrão antigas
-  if(state.checklist && typeof state.checklist === "object"){
-    const idsAtivos = new Set(state.empresas.map(e=>e.id));
-    Object.keys(state.checklist).forEach(id=>{
-      const empId = id.split("::")[0];
-      if(!idsAtivos.has(empId)) Object.keys(state.checklist||{}).forEach(k=>{ if(k===id || k.startsWith(id+"::")) delete state.checklist[k]; });
-    });
-  }
-
-  // Garante checklist da competência atual e deriva as pendências a partir dele
+  // Preserva integralmente os registros existentes; cria somente competências ausentes.
   if(!state.checklist || typeof state.checklist !== "object") state.checklist = {};
-  // Limpa etapas fixas antigas já gravadas no navegador/backups anteriores.
-  Object.keys(state.checklist).forEach(k=>{
-    if(Array.isArray(state.checklist[k])){
-      state.checklist[k] = state.checklist[k].filter(it=>!ETAPAS_FIXAS_ANTIGAS.has(String(it && it.etapaId || "")));
-    }
-  });
   state.empresas.forEach(emp=>getChecklistEmpresa(emp.id, competenciaAtual()));
-  // Correção de migração: competências futuras que tenham sido abertas antes desta versão
-  // voltam para branco. O mês seguinte deve iniciar sem etapas concluídas.
-  reiniciarCompetenciasFuturasEmBranco();
   recalcularPendencias();
   sincronizarDivergencias();
   state.historico = gerarHistorico(state.empresas);
@@ -4275,23 +4228,6 @@ function carregarEstado(){
     state.ui.empresaFechamento = null;
   }
 
-  if(houveLimpezaSeed){
-    try{
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({
-        empresas: state.empresas,
-        usuarios: state.usuarios,
-        competencias: state.competencias,
-        obrigacoesExtras: state.obrigacoesExtras,
-        gruposObrigacoes: state.gruposObrigacoes,
-        solicitacoesExclusao: state.solicitacoesExclusao,
-        auditoria: state.auditoria,
-        linksRapidos: state.linksRapidos,
-        checklist: state.checklist,
-        filtros: state.filtros,
-        ui: state.ui
-      }));
-    }catch(e){}
-  }
 }
 
 /* ============================================================
@@ -5022,6 +4958,10 @@ function imprimirCalendario(){
   const w = window.open("","_blank"); if(!w) return;
   w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Calendário de Obrigações</title><style>@page{size:A4;margin:12mm}body{font-family:'Calibri Light',Calibri,Arial,sans-serif;color:#172033;font-size:11px}h1{font-size:20px;margin:0 0 4px}p{color:#64748b}table{width:100%;border-collapse:collapse;margin-top:10px}th,td{border:1px solid #e5e7eb;padding:6px;text-align:left}th{background:#f8fafc}</style></head><body><h1>Calendário de Obrigações</h1><p>Competência ${escapeHtml(comp)} • gerado em ${new Date().toLocaleString("pt-BR")}</p><table><thead><tr><th>Prazo</th><th>Empresa</th><th>Obrigação</th><th>Status</th><th>Responsável</th></tr></thead><tbody>${rows || '<tr><td colspan="5">Nenhuma obrigação com prazo.</td></tr>'}</tbody></table><script>window.onload=()=>setTimeout(()=>window.print(),200)<\/script></body></html>`);
   w.document.close();
+}
+function renderKPIs(id, itens){
+  const el = document.getElementById(id);
+  if(el) el.innerHTML = itens.map(renderKpi).join("");
 }
 function renderKpi(k){
   const f = k.filter || null;
@@ -6899,6 +6839,11 @@ function executarSolicitacaoMaster(reqId){
     Object.keys(state.checklist||{}).forEach(k=>{ if(k===id || k.startsWith(id+"::")) delete state.checklist[k]; });
   }else if(r.tipo==="usuario"){
     state.usuarios = state.usuarios.filter(x=>x.id!==r.itemId);
+  }else if(["documento","chamado","cliente"].includes(r.tipo)){
+    const campo = {documento:"documentos", chamado:"chamadosInternos", cliente:"clientesPortal"}[r.tipo];
+    state[campo] = state[campo].filter(x=>x.id!==r.itemId);
+  }else{
+    notificar("Tipo de solicitação não suportado. Nenhum registro foi excluído."); return;
   }
   r.status="executada"; r.executadoPor=usuarioAtual(); r.executadoEm=new Date().toLocaleString("pt-BR");
   salvarEstado(); popularFiltros(); renderUsuarios(); atualizarBadges(); refreshAtivo(); notificar("Exclusão executada pelo administrador.");
@@ -7407,30 +7352,34 @@ function salvarGrupoObrigacao(id, copiar=false){
 
 
 function montarBackup(){
-  return {
-    versao:"controle_empresa_standalone_v2",
-    geradoEm:new Date().toISOString(),
-    usuario:usuarioAtual()||"",
-    dados:{
-      empresas: state.empresas,
-      usuarios: state.usuarios,
-      competencias: state.competencias,
-      obrigacoesExtras: state.obrigacoesExtras,
-      gruposObrigacoes: state.gruposObrigacoes,
-      solicitacoesExclusao: state.solicitacoesExclusao,
-      auditoria: state.auditoria,
-      modelosEmail: state.modelosEmail,
-      linksRapidos: state.linksRapidos,
-      documentos: state.documentos,
-      chamadosInternos: state.chamadosInternos,
-      clientesPortal: state.clientesPortal,
-      fatorR: state.fatorR,
-      baseAnalista: state.baseAnalista,
-      checklist: state.checklist,
-      filtros: state.filtros,
-      ui: state.ui
-    }
-  };
+  return {versao:"controle_empresa_standalone_v3", geradoEm:new Date().toISOString(), usuario:usuarioAtual()||"", dados:snapshotEstado()};
+}
+function validarDadosBackup(json){
+  if(!json || typeof json !== "object" || Array.isArray(json)) throw new Error("Backup inválido.");
+  if(json.versao && !["controle_empresa_standalone_v2","controle_empresa_standalone_v3"].includes(json.versao)) throw new Error("Versão de backup não suportada.");
+  const origem = json.dados || json;
+  if(!Array.isArray(origem.empresas)) throw new Error("Arquivo sem cadastro de empresas.");
+  const dados = {};
+  CAMPOS_LISTA_BACKUP.forEach(k=>{
+    if(origem[k] !== undefined && !Array.isArray(origem[k])) throw new Error("Formato inválido: " + k);
+    dados[k] = origem[k] === undefined ? [] : origem[k];
+  });
+  CAMPOS_OBJETO_BACKUP.forEach(k=>{
+    const v = origem[k];
+    if(v !== undefined && (!v || typeof v !== "object" || Array.isArray(v))) throw new Error("Formato inválido: " + k);
+    dados[k] = v === undefined ? (k === "filtros" ? {...PADROES_FILTROS} : k === "ui" ? {...PADROES_UI} : {}) : v;
+  });
+  if(dados.empresas.some(v=>!v || typeof v !== "object" || Array.isArray(v) || !v.id)) throw new Error("Cadastro de empresa inválido.");
+  if(Object.values(dados.checklist).some(v=>!Array.isArray(v) || v.some(i=>!i || typeof i !== "object" || Array.isArray(i)))) throw new Error("Checklist inválido.");
+  return JSON.parse(JSON.stringify(dados));
+}
+function aplicarBackupValidado(dados){
+  // setItem é atômico: em caso de falha a base anterior permanece intacta.
+  // Só troca a memória depois de gravar o conteúdo validado integralmente.
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(dados));
+  Object.assign(state, dados);
+  falhaLeituraEstado = false;
+  sincronizarUsuariosDeAcesso();
 }
 function baixarJSON(obj, nome){
   const blob = new Blob([JSON.stringify(obj,null,2)], {type:"application/json;charset=utf-8"});
@@ -7445,7 +7394,7 @@ function baixarJSON(obj, nome){
 }
 
 function baixarBackupManual(){
-  salvarEstado();
+  // A exportação também deve funcionar quando o armazenamento está cheio.
   const nome = "backup_controle_empresa_" + new Date().toISOString().slice(0,19).replace(/[:T]/g,"-") + ".json";
   baixarJSON(montarBackup(), nome);
   gravarBackupAutomatico("backup manual");
@@ -7464,33 +7413,20 @@ function restaurarBackupArquivo(ev){
   const reader = new FileReader();
   reader.onload = ()=>{
     try{
-      const json = JSON.parse(reader.result);
-      const dados = json.dados || json;
-      if(!dados.empresas || !Array.isArray(dados.empresas)) throw new Error("Arquivo sem cadastro de empresas.");
-      if(!confirm("Restaurar este backup? Os dados atuais deste navegador serão substituídos.")) return;
-      state.empresas = dados.empresas || [];
-      state.usuarios = Array.isArray(dados.usuarios) ? dados.usuarios : [];
-      normalizarUsuarios();
-      state.competencias = dados.competencias || [];
-      state.obrigacoesExtras = dados.obrigacoesExtras || [];
-      state.gruposObrigacoes = dados.gruposObrigacoes || [];
-      state.solicitacoesExclusao = dados.solicitacoesExclusao || [];
-      state.auditoria = Array.isArray(dados.auditoria) ? dados.auditoria : [];
-      state.modelosEmail = Array.isArray(dados.modelosEmail) ? dados.modelosEmail : [];
-      state.linksRapidos = Array.isArray(dados.linksRapidos) ? dados.linksRapidos : [];
-      normalizarModelosEmail();
-  ensureExtrasState();
-      state.checklist = dados.checklist || {};
-      if(dados.filtros) state.filtros = Object.assign(state.filtros, dados.filtros);
-      if(dados.ui) state.ui = Object.assign(state.ui, dados.ui);
-      state.empresas.forEach(emp=>{ normalizarResponsaveis(emp); normalizarSolicitacao(emp); normalizarHistoricoRegimes(emp); normalizarContatosEmpresa(emp); getChecklistEmpresa(emp.id, competenciaAtual()); });
-      salvarEstado();
-      popularFiltros();
-      refreshAtivo();
-      notificar("Backup restaurado.");
-    }catch(e){ notificar("Não foi possível restaurar: "+e.message); }
+      const dados = validarDadosBackup(JSON.parse(reader.result));
+      if(!confirm("Restaurar este backup? Os dados deste navegador serão substituídos. Antes será baixada uma cópia de recuperação dos dados atuais.")) return;
+      const anterior = localStorage.getItem(STORAGE_KEY);
+      let recuperacao = montarBackup();
+      if(falhaLeituraEstado && anterior){ recuperacao = {conteudoOriginal:anterior}; }
+      baixarJSON(recuperacao, "recuperacao_antes_restauracao_"+Date.now()+".json");
+      aplicarBackupValidado(dados);
+    }catch(e){ notificar("Não foi possível restaurar: "+e.message); ev.target.value=""; return; }
     ev.target.value = "";
+    try{ popularFiltros(); refreshAtivo(); }
+    catch(e){ notificar("Backup gravado. Recarregue a página para atualizar as telas."); return; }
+    notificar("Backup restaurado integralmente.");
   };
+  reader.onerror = ()=>{ notificar("Não foi possível ler o arquivo de backup."); ev.target.value=""; };
   reader.readAsText(file, "utf-8");
 }
 function bindBackupAutomaticoAoFechar(){
@@ -7911,6 +7847,7 @@ async function salvarDocumento(id){
     atualizadoEm: new Date().toISOString()
   };
 
+  const documentosAntes = JSON.parse(JSON.stringify(state.documentos));
   if(id && atual){
     Object.assign(atual, registro);
   }else{
@@ -7921,8 +7858,9 @@ async function salvarDocumento(id){
   try{
     salvarEstado();
   }catch(e){
+    state.documentos = documentosAntes;
     console.error("Erro ao salvar no navegador:", e);
-    notificar("O arquivo foi lido, mas o navegador não conseguiu armazenar. Use arquivo menor ou limpe o backup local.");
+    notificar("O arquivo foi lido, mas o navegador não conseguiu armazenar. Use um arquivo menor e exporte um backup de segurança.");
     return;
   }
 
@@ -8035,7 +7973,7 @@ function excluirDocumento(id){
     renderDocumentos();
     notificar("Documento excluído.");
   }else{
-    solicitarExclusao?.("documento", id, d.nomeArquivo || "documento", "Solicitação de exclusão de documento");
+    registrarSolicitacaoExclusao("documento", id, d.nomeArquivo || "documento", "Solicitação de exclusão de documento");
     fecharModal();
   }
 }
@@ -8071,7 +8009,7 @@ function salvarChamado(id){
 }
 function alterarStatusChamado(id, status){ const c=state.chamadosInternos.find(x=>x.id===id); if(!c) return; c.status=status; if(status==='andamento' && !c.iniciadoEm) c.iniciadoEm = Date.now(); c.atualizadoEm=new Date().toLocaleString('pt-BR'); salvarEstado(); renderChamados(); }
 function concluirOuEncaminharChamado(id){ const c=state.chamadosInternos.find(x=>x.id===id); if(!c) return; if(c.proximo){ c.para = c.proximo; c.proximo=''; c.status='aberto'; c.atualizadoEm=new Date().toLocaleString('pt-BR'); registrarAuditoria('Chamado encaminhado ao próximo da sprint', c.empresaId, {texto:c.titulo+' → '+c.para}); notificar('Chamado encaminhado para '+c.para+'.'); } else { c.status='concluido'; c.atualizadoEm=new Date().toLocaleString('pt-BR'); registrarAuditoria('Chamado concluído', c.empresaId, {texto:c.titulo}); notificar('Chamado concluído.'); } salvarEstado(); renderChamados(); }
-function excluirChamado(id){ const c=state.chamadosInternos.find(x=>x.id===id); if(!c) return; if(canDeleteData()){ if(!confirm('Excluir este chamado?')) return; state.chamadosInternos = state.chamadosInternos.filter(x=>x.id!==id); salvarEstado(); renderChamados(); } else { solicitarExclusao('chamado', id, c.titulo, 'Solicitação de exclusão de chamado'); } }
+function excluirChamado(id){ const c=state.chamadosInternos.find(x=>x.id===id); if(!c) return; if(canDeleteData()){ if(!confirm('Excluir este chamado?')) return; state.chamadosInternos = state.chamadosInternos.filter(x=>x.id!==id); salvarEstado(); renderChamados(); } else { registrarSolicitacaoExclusao('chamado', id, c.titulo, 'Solicitação de exclusão de chamado'); } }
 
 function renderBaseAnalista(){ ensureExtrasState(); const q = normalizarTexto(document.getElementById('baseBusca')?.value || ''); const root = document.getElementById('base-grid'); if(!root) return; const lista = (state.baseAnalista||[]).filter(item=>!q || normalizarTexto([item.cat,item.titulo,item.desc,(item.itens||[]).join(' ')].join(' ')).includes(q)); root.innerHTML = lista.map(item=>`<div class="quick-card"><div class="quick-title">${escapeHtml(item.titulo)}</div><div class="badge neutral" style="margin-bottom:8px">${escapeHtml(item.cat)}</div><div class="quick-desc">${escapeHtml(item.desc)}</div><div class="missing-list">${(item.itens||[]).map(x=>`<span class="missing-chip">${escapeHtml(x)}</span>`).join('')}</div></div>`).join('') || `<div class="empty" style="padding:20px">Nenhum assunto encontrado para a busca.</div>`; }
 
@@ -8131,7 +8069,7 @@ function abrirPreviewPortalCliente(id){
   const body = `<div class="portal-preview-box"><div class="portal-preview-head"><strong>Portal do Cliente</strong><span class="badge ${bloqueado?"crit":"ok"}">${bloqueado?"Acesso bloqueado":"Acesso ativo"}</span></div><div class="portal-preview-card"><span>Cliente</span><strong>${escapeHtml(c?.nome||"Cliente demonstrativo")}</strong><small>${escapeHtml(emp?.nome||"Empresa vinculada")}</small></div><div class="portal-preview-card"><span>Documentos solicitados</span><strong>${(state.documentos||[]).filter(d=>!emp || d.empresaId===emp.id).length}</strong><small>documentos vinculados à empresa</small></div><div class="portal-preview-card"><span>Obrigações próximas</span><strong>${agruparAlertasVencimento().length}</strong><small>alertas em até 5 dias</small></div><div class="portal-preview-card"><span>Permissões</span><strong>${escapeHtml((c?.permissoes||["pendencias","documentos","guias"]).join(", "))}</strong><small>o cliente só verá essas áreas</small></div></div>`;
   abrirModal("Prévia da área do cliente", body, [{label:"Fechar", onClick:fecharModal}], true);
 }
-function excluirClientePortal(id){ const c = state.clientesPortal.find(x=>x.id===id); if(!c) return; if(canDeleteData()){ if(!confirm("Excluir este cliente do controle local?")) return; state.clientesPortal = state.clientesPortal.filter(x=>x.id!==id); salvarEstado(); renderClientesPortal(); notificar("Cliente removido."); } else { solicitarExclusao("cliente", id, c.nome, "Solicitação de exclusão de cliente"); } }
+function excluirClientePortal(id){ const c = state.clientesPortal.find(x=>x.id===id); if(!c) return; if(canDeleteData()){ if(!confirm("Excluir este cliente do controle local?")) return; state.clientesPortal = state.clientesPortal.filter(x=>x.id!==id); salvarEstado(); renderClientesPortal(); notificar("Cliente removido."); } else { registrarSolicitacaoExclusao("cliente", id, c.nome, "Solicitação de exclusão de cliente"); } }
 
 
 function nivelSenha(valor){

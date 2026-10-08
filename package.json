@@ -5,6 +5,10 @@
   "type": "module",
   "scripts": {
     "start": "node server.js",
-    "build": "node --check server.js"
+    "build": "node --check server.js",
+    "test": "node tests/protecao-dados.cjs"
+  },
+  "devDependencies": {
+    "jsdom": "^30.1.2"
   }
 }
