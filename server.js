@@ -58,7 +58,6 @@ function requireAuth(req, res, next) {
   if (isAuthed(req)) return next();
   return res.redirect('/login');
 }
-
 function readIndexHtml() {
   return fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8');
 }
@@ -108,17 +107,33 @@ const emitLeveScript = `
 })();
 </script>`;
 
-const publicLandingPatch = `
+const publicLoginButton = `
+<style id="cePublicLoginButtonStyle">
+.ce-public-login-fixed{position:fixed;right:22px;top:18px;z-index:999999;display:inline-flex;align-items:center;gap:10px;height:42px;padding:0 18px;border-radius:999px;background:linear-gradient(135deg,#b42318,#8f1b13);color:#fff!important;text-decoration:none!important;font:800 13px/1 'Segoe UI',Arial,sans-serif;box-shadow:0 16px 40px rgba(0,0,0,.28);border:1px solid rgba(255,255,255,.18)}.ce-public-login-fixed:hover{filter:brightness(.96);transform:translateY(-1px)}@media(max-width:720px){.ce-public-login-fixed{right:12px;top:12px;height:38px;padding:0 14px;font-size:12px}}
+</style>
+<a class="ce-public-login-fixed" href="/login" data-ce-login-fixed="1">Entrar no sistema</a>
 <script id="cePublicLandingPatch">
 (function(){
+  function goLogin(ev){ if(ev){ ev.preventDefault(); ev.stopPropagation(); } window.location.assign('/login'); }
+  function isLoginTrigger(el){
+    if(!el) return false;
+    var text=String(el.textContent||el.value||el.getAttribute('aria-label')||'').toLowerCase();
+    var id=String(el.id||'').toLowerCase();
+    var cls=String(el.className||'').toLowerCase();
+    return text.includes('login') || text.includes('entrar') || text.includes('acessar') || id.includes('login') || cls.includes('login');
+  }
   document.addEventListener('DOMContentLoaded',function(){
-    document.querySelectorAll('a,button').forEach(function(el){
-      var text=String(el.textContent||el.value||el.getAttribute('aria-label')||'').toLowerCase();
-      if(text.includes('login')||text.includes('entrar')||text.includes('acessar')){
+    document.querySelectorAll('a,button,[role="button"],input[type="button"],input[type="submit"]').forEach(function(el){
+      if(el.getAttribute('data-ce-login-fixed')) return;
+      if(isLoginTrigger(el)){
         if(el.tagName==='A') el.setAttribute('href','/login');
-        if(el.tagName==='BUTTON') el.addEventListener('click',function(ev){ev.preventDefault();location.href='/login';});
+        el.addEventListener('click', goLogin, true);
       }
     });
+    document.addEventListener('click',function(ev){
+      var el=ev.target.closest && ev.target.closest('a,button,[role="button"],input[type="button"],input[type="submit"]');
+      if(el && !el.getAttribute('data-ce-login-fixed') && isLoginTrigger(el)) goLogin(ev);
+    },true);
   });
 })();
 </script>`;
@@ -151,7 +166,7 @@ function injectEmitLeve(html) {
 }
 function renderPublicLanding() {
   let html = readIndexHtml();
-  if (!html.includes('cePublicLandingPatch')) html = html.replace('</body>', `${publicLandingPatch}\n</body>`);
+  if (!html.includes('cePublicLandingPatch')) html = html.replace('</body>', `${publicLoginButton}\n</body>`);
   return html;
 }
 function renderAppHtml() {
@@ -161,7 +176,7 @@ function renderAppHtml() {
   return injectEmitLeve(html);
 }
 
-app.get('/api/health', (_req, res) => res.json({ ok: true, mode: 'public-landing-server-login-app-unlocked', timestamp: new Date().toISOString() }));
+app.get('/api/health', (_req, res) => res.json({ ok: true, mode: 'public-landing-fixed-login-button', timestamp: new Date().toISOString() }));
 app.get(['/', '/demo'], (_req, res) => res.type('html').send(renderPublicLanding()));
 app.get('/login', (req, res) => {
   if (isAuthed(req)) return res.redirect('/app');
@@ -179,7 +194,8 @@ app.get('/logout', (_req, res) => {
   res.redirect('/login');
 });
 app.get(['/app', '/app.html'], requireAuth, (_req, res) => res.type('html').send(renderAppHtml()));
+
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('*', (_req, res) => res.redirect('/'));
 
-app.listen(PORT, () => console.log(`Controle de Empresa rodando na porta ${PORT} - landing publica, login estavel e app desbloqueado`));
+app.listen(PORT, () => console.log(`Controle de Empresa rodando na porta ${PORT} - landing publica com login fixo`));
