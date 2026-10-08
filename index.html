@@ -1895,6 +1895,20 @@ body.login-modal-open{overflow:hidden}
   .doc-preview-frame,.doc-image-wrap,.doc-text-preview{height:55vh}
 }
 
+
+/* Campanha EmitLeve: isolada dos formulários e dos dados do sistema. */
+.ce-promo{position:fixed;inset:0;z-index:20000;background:rgba(8,18,35,.72);display:flex;align-items:center;justify-content:center;padding:16px}
+.ce-promo[hidden]{display:none}
+.ce-promo-card{width:min(100%,1050px);max-height:94vh;max-height:94dvh;overflow:auto;background:#fff;color:#172033;border-radius:18px;box-shadow:0 24px 80px #0006}
+.ce-promo-head,.ce-promo-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;flex-wrap:wrap}
+.ce-promo-head strong{font-size:14px}
+.ce-promo-close{border:0;background:#eef2f7;color:#172033;border-radius:50%;width:40px;height:40px;font-size:26px;cursor:pointer}
+.ce-promo-img{display:block;width:100%;height:auto}
+.ce-promo-foot label{display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer}
+.ce-promo-link{display:inline-flex;padding:12px 18px;background:#006bd6;color:#fff!important;border-radius:10px;text-decoration:none;font-weight:600}
+.ce-promo :focus-visible{outline:3px solid #009eff;outline-offset:3px}
+@media(max-width:520px){.ce-promo{padding:8px}.ce-promo-foot{justify-content:center}.ce-promo-link{width:100%;justify-content:center}}
+
 </style>
 </head>
 <body>
@@ -8299,6 +8313,56 @@ function setStorageKeyForUser(user){
   BACKUP_KEY = "controle_empresa_backups_v1_" + (user || "default").toLowerCase();
 }
 
+
+const CAMPANHA_EMITLEVE = "emitleve_20261008";
+let promoMostradaNestaSessao = false;
+function chavePreferenciaPropaganda(){
+  return "ce_propaganda_"+CAMPANHA_EMITLEVE+"_"+(usuarioAtual()||"anon");
+}
+function mostrarPropagandaEmitLeve(){
+  if(promoMostradaNestaSessao || !BOOTED) return false;
+  try{
+    const pref=JSON.parse(localStorage.getItem(chavePreferenciaPropaganda())||"{}");
+    if(pref.ocultar || pref.dia===dataISOHoje()) return false;
+  }catch(e){}
+  // Não cobre formulários ou avisos operacionais que já estejam abertos.
+  if(document.querySelector(".modal-overlay.show") || state.ui.alertaPainelAberto) return false;
+  const anterior=document.activeElement;
+  const overlay=document.createElement("div"); overlay.className="ce-promo";
+  overlay.innerHTML=`<section class="ce-promo-card" role="dialog" aria-modal="true" aria-labelledby="ce-promo-titulo">
+    <div class="ce-promo-head"><strong id="ce-promo-titulo">Conheça o EmitLeve · Publicidade</strong><button class="ce-promo-close" type="button" aria-label="Fechar propaganda">×</button></div>
+    <a href="https://wa.me/554174037906" target="_blank" rel="noopener noreferrer" aria-label="Conhecer o EmitLeve pelo WhatsApp"><img class="ce-promo-img" src="/assets/emitleve-propaganda.png" alt="EmitLeve: NFS-e pelo WhatsApp. R$ 1,01 por nota fiscal. WhatsApp (41) 7403-7906."></a>
+    <div class="ce-promo-foot"><label><input type="checkbox" id="ce-promo-ocultar"> Não mostrar novamente</label><a class="ce-promo-link" href="https://wa.me/554174037906" target="_blank" rel="noopener noreferrer">Conhecer pelo WhatsApp ↗</a></div>
+  </section>`;
+  const gravar=()=>{try{localStorage.setItem(chavePreferenciaPropaganda(),JSON.stringify({dia:dataISOHoje(),ocultar:overlay.querySelector('input').checked}));}catch(e){}};
+  const fechar=()=>{gravar();overlay.remove();if(anterior && anterior.isConnected) anterior.focus();};
+  overlay.querySelector('button').addEventListener('click',fechar);
+  overlay.querySelector('input').addEventListener('change',gravar);
+  overlay.addEventListener('click',e=>{if(e.target===overlay)fechar();});
+  overlay.addEventListener('keydown',e=>{
+    if(e.key==='Escape'){e.preventDefault();fechar();}
+    if(e.key==='Tab'){
+      const itens=Array.from(overlay.querySelectorAll('button,a,input'));
+      const first=itens[0],last=itens[itens.length-1];
+      if(e.shiftKey && document.activeElement===first){e.preventDefault();last.focus();}
+      else if(!e.shiftKey && document.activeElement===last){e.preventDefault();first.focus();}
+    }
+  });
+  overlay.querySelector('img').addEventListener('error',fechar);
+  document.body.appendChild(overlay);promoMostradaNestaSessao=true;gravar();overlay.querySelector('button').focus();
+  return true;
+}
+function agendarPropagandaEmitLeve(){
+  const tentar=()=>{
+    if(mostrarPropagandaEmitLeve() || promoMostradaNestaSessao) return;
+    // Se há aviso aberto, tenta novamente somente quando o usuário interagir.
+    if(document.querySelector('.modal-overlay.show') || state.ui.alertaPainelAberto){
+      document.addEventListener('click',()=>setTimeout(tentar,800),{once:true});
+    }
+  };
+  setTimeout(tentar,2200);
+}
+
 function boot(){
   if(BOOTED) return;
   BOOTED = true;
@@ -8313,6 +8377,7 @@ function boot(){
   navegarPara(state.ui.viewAtual || "dashboard");
   atualizarBadges();
   alertarSolicitacoesAdminInicio();
+  agendarPropagandaEmitLeve();
   setTimeout(perguntarCalendarioPadrao, 700);
   setTimeout(()=>{ mostrarAlertasPrimeiroAcesso(); atualizarBadgeAlertasTopo(); }, 900);
 }
