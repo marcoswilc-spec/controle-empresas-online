@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';
+import { DEFAULT_PLAN, calculate } from '../billing/pricing.mjs';
+assert.equal(calculate(DEFAULT_PLAN, 1).totalCents, 20000);
+assert.equal(calculate(DEFAULT_PLAN, 2).totalCents, 25000);
+assert.equal(calculate(DEFAULT_PLAN, 4).totalCents, 35000);
+assert.equal(calculate({...DEFAULT_PLAN,baseCents:30000,extraUserCents:2500},3).totalCents,35000);
+assert.throws(()=>calculate(DEFAULT_PLAN,-1));
+assert.throws(()=>calculate({...DEFAULT_PLAN,baseCents:-1},2));
+assert.equal(DEFAULT_PLAN.paymentsEnabled,false);
+assert.equal(DEFAULT_PLAN.blockingEnabled,false);
+console.log('Pricing tests passed');
