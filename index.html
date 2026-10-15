@@ -1904,10 +1904,17 @@ body.login-modal-open{overflow:hidden}
 .ce-promo-head strong{font-size:14px}
 .ce-promo-close{border:0;background:#eef2f7;color:#172033;border-radius:50%;width:40px;height:40px;font-size:26px;cursor:pointer}
 .ce-promo-img{display:block;width:100%;height:auto}
+.ce-promo-creative{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(260px,.55fr);gap:24px;align-items:center;padding:34px;text-decoration:none;color:#fff!important;background:radial-gradient(circle at 18% 18%,rgba(58,166,255,.34),transparent 34%),linear-gradient(135deg,#061a36 0%,#0a3974 58%,#071c38 100%);border-top:1px solid #dbe7f2;border-bottom:1px solid #dbe7f2}
+.ce-promo-brand{display:flex;align-items:center;gap:14px;margin-bottom:18px}.ce-promo-logo{width:64px;height:64px;flex:0 0 64px;filter:drop-shadow(0 12px 22px rgba(0,0,0,.28))}.ce-promo-logo svg{width:100%;height:100%}
+.ce-promo-brand strong{display:block;font-size:30px;line-height:1;color:#fff}.ce-promo-brand small{display:block;margin-top:6px;color:#b7d7f7;font-size:12px;text-transform:uppercase;letter-spacing:.12em}
+.ce-promo-copy h3{margin:0 0 10px;font-size:clamp(26px,3.8vw,46px);line-height:1.02;color:#fff;letter-spacing:-.035em}.ce-promo-copy p{margin:0;color:#d8e8f8;font-size:17px;line-height:1.5}
+.ce-promo-funny{display:inline-flex;margin-top:18px;padding:10px 14px;border-radius:999px;background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.16);color:#fff;font-weight:700}
+.ce-promo-pricebox{background:#fff;color:#071c38;border-radius:24px;padding:26px 24px;text-align:center;box-shadow:0 18px 44px rgba(0,0,0,.24)}.ce-promo-pricebox small{display:block;color:#58708a;font-weight:800;text-transform:uppercase;letter-spacing:.1em}.ce-promo-price{display:flex;align-items:flex-start;justify-content:center;gap:5px;margin:8px 0}.ce-promo-price span{font-size:20px;font-weight:900;margin-top:10px}.ce-promo-price strong{font-size:68px;line-height:.95;letter-spacing:-.06em;color:#075cae}.ce-promo-pricebox b{display:block;font-size:17px}.ce-promo-pricebox em{display:block;margin-top:10px;font-style:normal;color:#137333;font-weight:800}
 .ce-promo-foot label{display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer}
 .ce-promo-link{display:inline-flex;padding:12px 18px;background:#006bd6;color:#fff!important;border-radius:10px;text-decoration:none;font-weight:600}
 .ce-promo :focus-visible{outline:3px solid #009eff;outline-offset:3px}
-@media(max-width:520px){.ce-promo{padding:8px}.ce-promo-foot{justify-content:center}.ce-promo-link{width:100%;justify-content:center}}
+@media(max-width:720px){.ce-promo-creative{grid-template-columns:1fr;padding:22px}.ce-promo-pricebox{text-align:left}.ce-promo-price{justify-content:flex-start}.ce-promo-price strong{font-size:58px}}
+@media(max-width:520px){.ce-promo{padding:8px}.ce-promo-foot{justify-content:center}.ce-promo-link{width:100%;justify-content:center}.ce-promo-copy h3{font-size:30px}.ce-promo-funny{border-radius:16px}}
 
 </style>
 </head>
@@ -8314,7 +8321,7 @@ function setStorageKeyForUser(user){
 }
 
 
-const CAMPANHA_EMITLEVE = "emitleve_20261008";
+const CAMPANHA_EMITLEVE = "emitleve_20261014_preco099";
 let promoMostradaNestaSessao = false;
 function chavePreferenciaPropaganda(){
   return "ce_propaganda_"+CAMPANHA_EMITLEVE+"_"+(usuarioAtual()||"anon");
@@ -8331,7 +8338,23 @@ function mostrarPropagandaEmitLeve(){
   const overlay=document.createElement("div"); overlay.className="ce-promo";
   overlay.innerHTML=`<section class="ce-promo-card" role="dialog" aria-modal="true" aria-labelledby="ce-promo-titulo">
     <div class="ce-promo-head"><strong id="ce-promo-titulo">Conheça o EmitLeve · Publicidade</strong><button class="ce-promo-close" type="button" aria-label="Fechar propaganda">×</button></div>
-    <a href="https://wa.me/554174037906" target="_blank" rel="noopener noreferrer" aria-label="Conhecer o EmitLeve pelo WhatsApp"><img class="ce-promo-img" src="/assets/emitleve-propaganda.png" alt="EmitLeve: NFS-e pelo WhatsApp. R$ 1,01 por nota fiscal. WhatsApp (41) 7403-7906."></a>
+    <a class="ce-promo-creative" href="https://wa.me/554174037906?text=Quero%20conhecer%20o%20EmitLeve" target="_blank" rel="noopener noreferrer" aria-label="Conhecer o EmitLeve pelo WhatsApp por R$ 0,99 por emissão">
+      <div class="ce-promo-copy">
+        <div class="ce-promo-brand">
+          <span class="ce-promo-logo" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><linearGradient id="ceTop" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#9bd2ff"/><stop offset="1" stop-color="#5e9fe0"/></linearGradient><linearGradient id="ceFront" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3d96ed"/><stop offset="1" stop-color="#1d5da8"/></linearGradient><linearGradient id="ceSide" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#14518e"/><stop offset="1" stop-color="#0b3470"/></linearGradient></defs><path d="M50 7 90 28 50 49 10 28 50 7Z" fill="url(#ceTop)"/><path d="M10 28v44l40 21V49L10 28Z" fill="url(#ceFront)"/><path d="M90 28v44L50 93V49l40-21Z" fill="url(#ceSide)"/><path d="m25 55 17 17 34-35" fill="none" stroke="#fff" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+          <div><strong>EmitLeve</strong><small>NFS-e pelo WhatsApp</small></div>
+        </div>
+        <h3>Emita sua NFS-e sem complicação.</h3>
+        <p>Cadastro guiado, créditos por emissão e confirmação diretamente pelo WhatsApp.</p>
+        <span class="ce-promo-funny">Por menos de R$ 1,00, sua nota fiscal na mão. 😄</span>
+      </div>
+      <div class="ce-promo-pricebox">
+        <small>Novo valor</small>
+        <div class="ce-promo-price"><span>R$</span><strong>0,99</strong></div>
+        <b>por NFS-e emitida</b>
+        <em>Toque aqui e fale com o EmitLeve</em>
+      </div>
+    </a>
     <div class="ce-promo-foot"><label><input type="checkbox" id="ce-promo-ocultar"> Não mostrar novamente</label><a class="ce-promo-link" href="https://wa.me/554174037906" target="_blank" rel="noopener noreferrer">Conhecer pelo WhatsApp ↗</a></div>
   </section>`;
   const gravar=()=>{try{localStorage.setItem(chavePreferenciaPropaganda(),JSON.stringify({dia:dataISOHoje(),ocultar:overlay.querySelector('input').checked}));}catch(e){}};
