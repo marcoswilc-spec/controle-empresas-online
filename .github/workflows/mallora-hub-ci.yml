@@ -1,0 +1,29 @@
+name: Mallora HUB — prévia sem credenciais
+on:
+  push:
+    branches:
+      - security/demo-no-credentials-20261116
+  pull_request:
+    branches:
+      - mallora-hub-deploy-20261110
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verificar JS e ausência de coleta de credenciais
+        run: |
+          node --check mallora-hub/server.mjs
+          node --check mallora-hub/hub.js
+          node - <<'NODE'
+          const fs=require('node:fs'),assert=require('node:assert/strict');
+          const source=fs.readFileSync('mallora-hub/hub.js','utf8');
+          assert.equal(source.includes('type="password"'),false,'A demonstração não deve coletar senha');
+          assert.equal(source.includes('type="email"'),false,'A demonstração não deve coletar e-mail');
+          assert.ok(source.includes('não solicitamos e-mail ou senha'),'Aviso ausente');
+          NODE
